@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agentic Promo WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #messages { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin: 10px 0; }
+        input[type="text"] { width: 70%; padding: 5px; }
+        button { padding: 5px 10px; }
+        .message { margin: 5px 0; padding: 5px; background: #f0f0f0; border-radius: 3px; }
+        .sent { background: #e3f2fd; }
+        .received { background: #f1f8e9; }
+    </style>
+</head>
+<body>
+    <h1>Agentic Promotion Engine - WebSocket Test</h1>
+    
+    <div>
+        <input type="text" id="endpoint" placeholder="wss://your-websocket-endpoint/dev" style="width: 90%;">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+    
+    <div id="status">Disconnected</div>
+    
+    <div id="messages"></div>
+    
+    <div>
+        <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <h3>Quick Test Messages:</h3>
+        <button onclick="sendQuickMessage('list_promotions', 'Show me all active promotions')">List Promotions</button>
+        <button onclick="sendQuickMessage('create_promotion', 'Create a 20% discount for VIP customers')">Create Promotion</button>
+        <button onclick="sendQuickMessage('list_customers', 'Show me all customers')">List Customers</button>
+    </div>
+
+    <script>
+        let ws = null;
+        
+        function connect() {
+            const endpoint = document.getElementById('endpoint').value;
+            if (!endpoint) {
+                alert('Please enter WebSocket endpoint');
+                return;
+            }
+            
+            ws = new WebSocket(endpoint);
+            
+            ws.onopen = function() {
+                document.getElementById('status').textContent = 'Connected';
+                addMessage('Connected to WebSocket', 'system');
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                addMessage(`Received: ${JSON.stringify(data, null, 2)}`, 'received');
+            };
+            
+            ws.onclose = function() {
+                document.getElementById('status').textContent = 'Disconnected';
+                addMessage('Disconnected from WebSocket', 'system');
+            };
+            
+            ws.onerror = function(error) {
+                addMessage(`Error: ${error}`, 'error');
+            };
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message || !ws) return;
+            
+            const payload = {
+                action: 'message',
+                input: message
+            };
+            
+            ws.send(JSON.stringify(payload));
+            addMessage(`Sent: ${message}`, 'sent');
+            input.value = '';
+        }
+        
+        function sendQuickMessage(intent, input) {
+            if (!ws) {
+                alert('Please connect first');
+                return;
+            }
+            
+            const payload = {
+                action: 'message',
+                intent: intent,
+                input: input
+            };
+            
+            ws.send(JSON.stringify(payload));
+            addMessage(`Sent: ${input} (${intent})`, 'sent');
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        function addMessage(text, type) {
+            const messages = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = `${new Date().toLocaleTimeString()}: ${text}`;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        }
+    </script>
+</body>
+</html>
