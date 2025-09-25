@@ -1,9 +1,23 @@
 // Agent Response Types
 export interface AgentResponse {
-  type: 'acknowledgment' | 'response' | 'error';
+  type: 'acknowledgment' | 'response' | 'error' | 'thinking' | 'stream_start' | 'stream_chunk' | 'stream_end' | 'data_update' | 'text_chunk' | 'tool_progress' | 'message_complete';
   chat_response?: string;
   structured_data?: StructuredData;
   message?: string;
+  
+  // Streaming fields
+  thinking_step?: string;
+  thinking_progress?: number;
+  content_chunk?: string;
+  content?: string; // For text_chunk messages
+  is_complete?: boolean;
+  data_chunk?: StructuredData;
+  data_progress?: number;
+  
+  // Tool progress fields
+  tool?: string;
+  status?: string;
+  timestamp?: string;
 }
 
 // UI Component Types
@@ -67,6 +81,8 @@ export interface ChatMessage {
   structured_data?: StructuredData;
   raw_response?: string;
   expanded?: boolean;
+  is_streaming?: boolean;
+  is_complete?: boolean;
 }
 
 // WebSocket Types

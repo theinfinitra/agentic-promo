@@ -7,6 +7,17 @@ Parameters:
     Default: dev
     AllowedValues: [dev, staging, prod]
   
+  DBUsername:
+    Type: String
+    Default: postgres
+    Description: Database master username
+  
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Database master password (min 8 characters)
+  
 Resources:
   # DynamoDB Tables
   PromotionsTable:
@@ -30,15 +41,19 @@ Resources:
           Projection:
             ProjectionType: ALL
 
-  CustomersTable:
+  CustomersTableV2:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${AWS::StackName}-customers'
+      TableName: !Sub '${AWS::StackName}-customers-v2'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
           AttributeType: S
         - AttributeName: segment
+          AttributeType: S
+        - AttributeName: segment_id
+          AttributeType: S
+        - AttributeName: lifecycle_stage
           AttributeType: S
       KeySchema:
         - AttributeName: id
@@ -50,16 +65,32 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
+        - IndexName: segment-id-index
+          KeySchema:
+            - AttributeName: segment_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: lifecycle-stage-index
+          KeySchema:
+            - AttributeName: lifecycle_stage
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
 
-  OrdersTable:
+  OrdersTableV2:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${AWS::StackName}-orders'
+      TableName: !Sub '${AWS::StackName}-orders-v2'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
           AttributeType: S
         - AttributeName: customer_id
+          AttributeType: S
+        - AttributeName: date
           AttributeType: S
       KeySchema:
         - AttributeName: id
@@ -69,8 +100,12 @@ Resources:
           KeySchema:
             - AttributeName: customer_id
               KeyType: HASH
+            - AttributeName: date
+              KeyType: RANGE
           Projection:
             ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
 
   # Connection Management Table
   ConnectionsTable:
@@ -84,6 +119,166 @@ Resources:
       KeySchema:
         - AttributeName: connectionId
           KeyType: HASH
+
+  # New DynamoDB Tables for Segmentation
+  CustomerInteractionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-customer-interactions'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: customer_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: interaction_type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customer_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: interaction-type-index
+          KeySchema:
+            - AttributeName: interaction_type
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  RealTimeMetricsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-realtime-metrics'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: customer_id
+          AttributeType: S
+        - AttributeName: metric_type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customer_id
+          KeyType: HASH
+        - AttributeName: metric_type
+          KeyType: RANGE
+
+  # Minimal VPC for Aurora
+  AnalyticsVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-analytics-vpc'
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AnalyticsVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-private-subnet-1'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AnalyticsVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-private-subnet-2'
+
+  # Security Group for Aurora
+  AuroraSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Aurora Serverless v2
+      VpcId: !Ref AnalyticsVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.0.0/16  # Allow from VPC CIDR instead of security group reference
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-aurora-sg'
+
+  # Security Group for Lambda
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Lambda functions
+      VpcId: !Ref AnalyticsVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.0.0/16  # Allow to VPC CIDR instead of security group reference
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0  # For AWS API calls
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-lambda-sg'
+
+  # DB Subnet Group
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for Aurora Serverless v2
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-db-subnet-group'
+
+  # Aurora Serverless v2 Cluster
+  AuroraCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier: !Sub '${AWS::StackName}-analytics-cluster'
+      Engine: aurora-postgresql
+      EngineVersion: '15.4'
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DatabaseName: analytics
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref AuroraSecurityGroup
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 0.5
+        MaxCapacity: 16
+      DeletionProtection: false
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: "03:00-04:00"
+      PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-analytics-cluster'
+
+  # Aurora Serverless v2 Writer Instance
+  AuroraInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub '${AWS::StackName}-analytics-writer'
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-analytics-writer'
 
   # Lambda Functions
   ConnectFunction:
@@ -149,9 +344,14 @@ Resources:
       Environment:
         Variables:
           PROMOTIONS_TABLE: !Ref PromotionsTable
-          CUSTOMERS_TABLE: !Ref CustomersTable
-          ORDERS_TABLE: !Ref OrdersTable
+          CUSTOMERS_TABLE: !Ref CustomersTableV2
+          ORDERS_TABLE: !Ref OrdersTableV2
           CONNECTIONS_TABLE: !Ref ConnectionsTable
+          CUSTOMER_INTERACTIONS_TABLE: !Ref CustomerInteractionsTable
+          REALTIME_METRICS_TABLE: !Ref RealTimeMetricsTable
+          AURORA_CLUSTER_ARN: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
+          AURORA_DATABASE_NAME: analytics
+          AURORA_USERNAME: !Ref DBUsername
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 900  # 15 minutes for long LLM operations
       MemorySize: 1024  # Increased for Strands Agents
@@ -209,10 +409,14 @@ Resources:
                   - dynamodb:Scan
                 Resource:
                   - !GetAtt PromotionsTable.Arn
-                  - !GetAtt CustomersTable.Arn
-                  - !GetAtt OrdersTable.Arn
+                  - !GetAtt CustomersTableV2.Arn
+                  - !GetAtt OrdersTableV2.Arn
+                  - !GetAtt CustomerInteractionsTable.Arn
+                  - !GetAtt RealTimeMetricsTable.Arn
                   - !Sub '${PromotionsTable.Arn}/index/*'
-                  - !Sub '${CustomersTable.Arn}/index/*'
+                  - !Sub '${CustomersTableV2.Arn}/index/*'
+                  - !Sub '${OrdersTableV2.Arn}/index/*'
+                  - !Sub '${CustomerInteractionsTable.Arn}/index/*'
                   - !GetAtt ConnectionsTable.Arn
                   - !Sub '${ConnectionsTable.Arn}/index/*'
         - PolicyName: ApiGatewayManagementAccess
@@ -231,7 +435,21 @@ Resources:
                 Action:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
+                  - bedrock:Converse
+                  - bedrock:ConverseStream
                 Resource: '*'
+        - PolicyName: AuroraAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - rds-data:ExecuteStatement
+                  - rds-data:BatchExecuteStatement
+                  - rds-data:BeginTransaction
+                  - rds-data:CommitTransaction
+                  - rds-data:RollbackTransaction
+                Resource: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
 
   # WebSocket API Gateway
   WebSocketApi:
@@ -302,3 +520,21 @@ Outputs:
     Value: !Ref PromotionsTable
     Export:
       Name: !Sub '${AWS::StackName}-promotions-table'
+
+  AuroraClusterEndpoint:
+    Description: Aurora Serverless v2 cluster endpoint
+    Value: !GetAtt AuroraCluster.Endpoint.Address
+    Export:
+      Name: !Sub '${AWS::StackName}-aurora-endpoint'
+
+  AuroraClusterArn:
+    Description: Aurora Serverless v2 cluster ARN
+    Value: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
+    Export:
+      Name: !Sub '${AWS::StackName}-aurora-arn'
+
+  DatabaseName:
+    Description: Aurora database name
+    Value: analytics
+    Export:
+      Name: !Sub '${AWS::StackName}-database-name'

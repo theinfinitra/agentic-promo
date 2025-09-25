@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # Seed mock data for Agentic Promotion Engine
-# Usage: ./seed-data.sh [stack-name]
+# Usage: ./seed-data.sh [stack-name] [profile] [region]
 
 set -e
 
 STACK_NAME=${1:-agentic-promo-dev}
-PROFILE="infinitra-dev"
-REGION="us-east-1"
+PROFILE=${2:-infinitra-dev}
+REGION=${3:-us-east-1}
 
-echo "🌱 Seeding mock data for $STACK_NAME"
+echo "🌱 Seeding mock data for $STACK_NAME (profile: $PROFILE, region: $REGION)"
 
 # Get table names from CloudFormation outputs
 PROMOTIONS_TABLE=$(aws cloudformation describe-stacks \

@@ -1,24 +1,26 @@
 #!/bin/bash
 
 # Agentic Promotion Engine - Deployment Script
-# Usage: ./deploy.sh [stack-name] [environment]
+# Usage: ./deploy.sh [stack-name] [profile] [region] [db-password]
 
 set -e
 
-STACK_NAME=${1:-agentic-promo-dev}
-ENVIRONMENT=${2:-dev}
-PROFILE="infinitra-dev"
-REGION="us-east-1"
+STACK_NAME=${1:-agentic-promo}
+PROFILE=${2:-infinitra-noone}
+REGION=${3:-us-east-1}
+DB_PASSWORD=${4}
 
-echo "🚀 Deploying Agentic Promotion Engine"
+if [ -z "$DB_PASSWORD" ]; then
+    echo "❌ Error: Database password is required"
+    echo "Usage: ./deploy.sh [stack-name] [profile] [region] [db-password]"
+    echo "Example: ./deploy.sh agentic-promo infinitra-noone us-east-1 MySecurePassword123"
+    exit 1
+fi
+
+echo "🚀 Deploying Agentic Promotion Engine with Aurora"
 echo "Stack Name: $STACK_NAME"
-echo "Environment: $ENVIRONMENT"
 echo "Profile: $PROFILE"
 echo "Region: $REGION"
-
-# Package Lambda function
-echo "📦 Packaging Lambda function..."
-./scripts/package-lambda.sh
 
 # Validate CloudFormation template
 echo "📋 Validating CloudFormation template..."
@@ -32,7 +34,7 @@ echo "🏗️  Deploying CloudFormation stack..."
 aws cloudformation deploy \
     --template-file infrastructure/cloudformation/main.yaml \
     --stack-name $STACK_NAME \
-    --parameter-overrides Environment=$ENVIRONMENT \
+    --parameter-overrides Environment=prod DBPassword=$DB_PASSWORD \
     --capabilities CAPABILITY_IAM \
     --profile $PROFILE \
     --region $REGION

@@ -3,19 +3,92 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { TableComponent } from './components/TableComponent';
 import { FormComponent } from './components/FormComponent';
 import { ChatMessage, StructuredData } from './types';
+import { marked } from 'marked';
 import './index.css';
+
+const formatRawResponse = (rawResponse: string): string => {
+  if (!rawResponse) return '';
+  
+  // Remove thinking blocks and HTML code blocks only
+  let formatted = rawResponse.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
+  formatted = formatted.replace(/```html[\s\S]*?```/g, '');
+  
+  return formatted.trim();
+};
+
+const formatChatMessage = (content: string): string => {
+  // Only remove thinking blocks and HTML code blocks if they exist
+  let formatted = content;
+  
+  if (formatted.includes('<thinking')) {
+    formatted = formatted.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
+  }
+  
+  if (formatted.includes('```html')) {
+    formatted = formatted.replace(/```html[\s\S]*?```/g, '');
+  }
+  
+  if (formatted.includes('<markdown>')) {
+    formatted = formatted.replace(/<markdown>/gi, '').replace(/<\/markdown>/gi, '');
+  }
+  
+  return formatted.trim();
+};
+
+const formatDataContent = (content: string): string => {
+  // Remove thinking blocks
+  let formatted = content.replace(/<thinking>([\s\S]*?)<\/thinking>/gi, '');
+  formatted = formatted.replace(/<div class="thinking-block">[\s\S]*?<\/div>/gi, '');
+  formatted = formatted.replace(/<thinking[^>]*>/gi, '');
+  formatted = formatted.replace(/^<thinking\s*$/gm, '');
+  
+  // Clean whitespace
+  formatted = formatted.replace(/\n\s*\n\s*\n/g, '\n\n');
+  formatted = formatted.trim();
+  
+  // Parse markdown if no HTML
+  if (!formatted.includes('<div') && !formatted.includes('<table')) {
+    try {
+      formatted = marked.parse(formatted) as string;
+    } catch (error) {
+      console.warn('Markdown parsing failed:', error);
+    }
+  }
+  
+  return formatted;
+};
 
 function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [currentData, setCurrentData] = useState<StructuredData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [thinkingStep, setThinkingStep] = useState('');
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   
   const { isConnected, isConnecting, lastMessage, sendMessage, error } = useWebSocket();
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userScrolledUp) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setUserScrolledUp(!isNearBottom);
+    }
+  };
+
+  const extractReasoningFromContent = (content: string) => {
+    // Since we now filter thinking blocks in formatMessageContent,
+    // just return the content as-is (no reasoning to extract)
+    return { reasoning: '', cleanContent: content };
   };
 
   const toggleRawResponse = (messageId: string) => {
@@ -34,44 +107,102 @@ function App() {
     if (lastMessage) {
       if (lastMessage.type === 'acknowledgment') {
         setIsProcessing(true);
+        setThinkingStep('');
+      } else if (lastMessage.type === 'tool_progress') {
+        // Map tool_progress to thinking steps
+        const tool = lastMessage.tool || 'system';
+        const status = lastMessage.status || 'working';
+        setThinkingStep(`${tool}: ${status}...`);
+      } else if (lastMessage.type === 'text_chunk') {
+        // Handle streaming text chunks - filter thinking content
+        const chunkContent = lastMessage.content || '';
+        
+        if (!streamingMessageId) {
+          // Start new streaming message
+          const messageId = Date.now().toString();
+          setStreamingMessageId(messageId);
+          setIsProcessing(false);
+          setThinkingStep('');
+          
+          const streamingMessage: ChatMessage = {
+            id: messageId,
+            type: 'agent',
+            content: chunkContent,
+            timestamp: new Date(),
+            is_streaming: true,
+            is_complete: false
+          };
+          
+          setMessages(prev => [...prev, streamingMessage]);
+        } else {
+          // Append to existing streaming message
+          setMessages(prev => prev.map(msg => 
+            msg.id === streamingMessageId 
+              ? { ...msg, content: msg.content + chunkContent }
+              : msg
+          ));
+        }
+      } else if (lastMessage.type === 'message_complete') {
+        // Mark streaming as complete but keep message
+        if (streamingMessageId) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === streamingMessageId 
+              ? { ...msg, is_streaming: false }
+              : msg
+          ));
+        }
       } else if (lastMessage.type === 'response') {
-        setIsProcessing(false);  // Re-enable input/button
+        // Final response with structured data
+        setIsProcessing(false);
+        setThinkingStep('');
         
-        // Add agent message to chat
-        const agentMessage: ChatMessage = {
-          id: Date.now().toString(),
-          type: 'agent',
-          content: lastMessage.structured_data?.type === 'html' 
-            ? '✅ Generated interactive component' 
-            : lastMessage.chat_response || 'Response received',
-          timestamp: new Date(),
-          structured_data: lastMessage.structured_data,
-          raw_response: lastMessage.structured_data?.type === 'html' 
-            ? lastMessage.chat_response 
-            : undefined,
-          expanded: false
-        };
+        if (streamingMessageId) {
+          // Update existing streaming message with final data
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === streamingMessageId) {
+              // Apply formatting only to final complete message
+              const cleanContent = formatChatMessage(msg.content);
+              const { reasoning, cleanContent: finalContent } = extractReasoningFromContent(cleanContent);
+              
+              return {
+                ...msg, 
+                is_streaming: false, 
+                is_complete: true,
+                content: finalContent || cleanContent,
+                structured_data: lastMessage.structured_data,
+                raw_response: reasoning ? `${reasoning}\n\n${lastMessage.chat_response || ''}` : (
+                  lastMessage.structured_data?.type === 'html' 
+                    ? lastMessage.chat_response 
+                    : undefined
+                )
+              };
+            }
+            return msg;
+          }));
+          setStreamingMessageId(null);
+        }
         
-        setMessages(prev => [...prev, agentMessage]);
-        
-        // Update data panel if structured data is present
+        // Update data panel
         if (lastMessage.structured_data) {
           setCurrentData(lastMessage.structured_data);
         }
       } else if (lastMessage.type === 'error') {
-        setIsProcessing(false);  // Re-enable input/button on error
+        setIsProcessing(false);
+        setThinkingStep('');
+        setStreamingMessageId(null);
         
         const errorMessage: ChatMessage = {
           id: Date.now().toString(),
           type: 'agent',
           content: `Error: ${lastMessage.message}`,
-          timestamp: new Date()
+          timestamp: new Date(),
+          is_complete: true
         };
         
         setMessages(prev => [...prev, errorMessage]);
       }
     }
-  }, [lastMessage]);
+  }, [lastMessage, streamingMessageId]);
 
   const handleSendMessage = () => {
     if (!inputValue.trim() || !isConnected) return;
@@ -150,9 +281,17 @@ function App() {
 
   const ProcessingAnimation = () => (
     <div className="text-center">
-      <div className="agent-working mx-auto mb-4"></div>
+      <svg className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
       <p className="font-medium text-trust">AI Agents Working...</p>
-      <p className="text-sm mt-1 text-secondary">Processing your request</p>
+      {thinkingStep && (
+        <p className="text-sm mt-1 text-secondary">🤔 {thinkingStep}</p>
+      )}
+      {!thinkingStep && (
+        <p className="text-sm mt-1 text-secondary">Processing your request</p>
+      )}
     </div>
   );
 
@@ -197,7 +336,9 @@ function App() {
           <div className="text-center">
             {isProcessing ? <></> :
               <>
-                <div className="text-4xl mb-2">🎯</div>
+                <svg className="w-12 h-12 mb-2 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
                 <p className="font-medium">Ask me something to see data here!</p>
                 <p className="text-sm mt-1">Try: "Show VIP customers" or "Create promotion"</p>
               </>
@@ -217,7 +358,7 @@ function App() {
           
           {/* HTML Content */}
           <div 
-            dangerouslySetInnerHTML={{ __html: currentData.content }}
+            dangerouslySetInnerHTML={{ __html: formatDataContent(currentData.content) }}
             onClick={handleHtmlClick}
           />
         </div>
@@ -294,28 +435,24 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-100 p-6" style={{backgroundColor: 'var(--background-light)', borderColor: 'var(--border-light)'}}>
+      <header className="bg-gray-800 shadow-sm border-b border-gray-700 p-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl" style={{color: 'var(--trust-green)', fontFamily: 'Unbounded, sans-serif', fontWeight: 900}}>
-            F<span style={{color: 'var(--accent-brown)', fontWeight: 900, fontFamily: 'Unbounded, sans-serif'}}>ai</span>rCl<span style={{color: 'var(--accent-brown)', fontWeight: 900, fontFamily: 'Unbounded, sans-serif'}}>ai</span>m
+          <h1 className="text-3xl text-gray-100" style={{fontFamily: 'Unbounded, sans-serif', fontWeight: 900}}>
+            F<span style={{color: 'var(--neutral-gray)', fontWeight: 900, fontFamily: 'Unbounded, sans-serif'}}>ai</span>rCl<span style={{color: 'var(--neutral-gray)', fontWeight: 900, fontFamily: 'Unbounded, sans-serif'}}>ai</span>m
           </h1>
-          <div className="flex items-center space-x-3">
-            <div className={`rounded-full transition-all duration-300 ${
-              isConnected ? 'status-connected' : isConnecting ? 'status-connecting' : 'status-disconnected'
-            }`}></div>
-            <span className="text-sm font-medium" style={{color: 'var(--text-secondary)'}}>
-              {isConnected ? 'Agents Ready' : isConnecting ? 'Connecting...' : 'Agents Offline'}
-            </span>
-          </div>
         </div>
       </header>
 
       {/* Main Content - Vertical Split */}
       <div className="flex-1 flex overflow-hidden">
         {/* Chat Panel (Left - 40%) */}
-        <div className="w-2/5 flex flex-col border-r border-gray-100 h-full">
+        <div className="w-2/5 flex flex-col border-r border-gray-200 h-full bg-white">
           {/* Chat Messages */}
-          <div className="flex-1 p-6 overflow-y-auto space-y-3">
+          <div 
+            ref={messagesContainerRef}
+            className="flex-1 p-6 overflow-y-auto space-y-3"
+            onScroll={handleScroll}
+          >
             {/* QuickStart Pills - Initial Position */}
             {showQuickStarts && !quickStartsMinimized && messages.length === 0 && (
               <div className="mb-6">
@@ -345,12 +482,23 @@ function App() {
               <div key={message.id}>
                 <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={message.type === 'user' ? 'message-user' : 'message-agent'}>
-                    <p className="text-sm">{message.content}</p>
+                    {message.is_streaming ? (
+                      <div className="text-sm whitespace-pre-wrap">
+                        {message.content}
+                      </div>
+                    ) : (
+                      <div className="text-sm" dangerouslySetInnerHTML={{ 
+                        __html: marked.parse(formatRawResponse(message.raw_response || message.content)) as string 
+                      }} />
+                    )}
+                    {message.is_streaming && (
+                      <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1">|</span>
+                    )}
                   </div>
                 </div>
                 
                 {/* Raw response toggle for HTML messages */}
-                {message.type === 'agent' && message.raw_response && (
+                {message.type === 'agent' && message.raw_response && message.is_complete && (
                   <div className="ml-4 mt-2">
                     <button
                       onClick={() => toggleRawResponse(message.id)}
@@ -369,11 +517,18 @@ function App() {
                 )}
               </div>
             ))}
-            {isProcessing && (
+            {(isProcessing || thinkingStep) && (
               <div className="flex justify-start">
                 <div className="message-agent flex items-center space-x-2">
                   <div className="loading-spinner"></div>
-                  <p className="text-sm font-medium">Processing your request...</p>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {thinkingStep ? 'Thinking...' : 'Processing your request...'}
+                    </p>
+                    {thinkingStep && (
+                      <p className="text-xs text-gray-600 mt-1">🤔 {thinkingStep}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -382,6 +537,26 @@ function App() {
 
           {/* Chat Input */}
           <div className="chat-panel">
+            {/* Connection Status */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <div className={`rounded-full transition-all duration-300 ${
+                  isConnected ? 'status-connected' : isConnecting ? 'status-connecting' : 'status-disconnected'
+                }`}></div>
+                <span className="text-xs font-medium" style={{color: 'var(--text-secondary)'}}>
+                  {isConnected ? 'Online' : isConnecting ? 'Connecting...' : 'Offline'}
+                </span>
+                {!isConnected && !isConnecting && (
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="text-xs text-blue-600 hover:underline ml-2"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Minimized QuickStart Pills */}
             {showQuickStarts && quickStartsMinimized && (
               <div className="mb-3 flex items-center justify-between">
@@ -417,14 +592,16 @@ function App() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask me about customers, promotions..."
-                className="flex-1 px-4 py-3 border border-gray-200 rounded-l-xl text-sm transition-all duration-200 border-r-0 focus:outline-none focus:ring-0 focus:border-gray-200"
+                placeholder={isConnected ? "Ask me about customers, promotions..." : "Agents offline - click Retry to reconnect"}
+                className={`flex-1 px-4 py-3 border border-gray-200 rounded-l-xl text-sm transition-all duration-200 border-r-0 focus:outline-none focus:ring-0 focus:border-gray-200 ${
+                  !isConnected ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''
+                }`}
                 style={{borderColor: 'var(--border-light)'}}
-                disabled={!isConnected || isProcessing}
+                disabled={!isConnected || isProcessing || streamingMessageId !== null}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!isConnected || isProcessing || !inputValue.trim()}
+                disabled={!isConnected || isProcessing || !inputValue.trim() || streamingMessageId !== null}
                 className="send-btn-connected disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
@@ -432,6 +609,11 @@ function App() {
                 </svg>
               </button>
             </div>
+
+            {/* AI Disclaimer */}
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              FairClaim uses AI. Please verify important information.
+            </p>
 
             {error && !isConnected && (
               <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
@@ -442,14 +624,14 @@ function App() {
         </div>
 
         {/* Data Panel (Right - 60%) */}
-        <div className="w-3/5 p-6 overflow-auto h-full relative" style={{backgroundColor: 'var(--background-light)'}}>
+        <div className="w-3/5 p-6 overflow-auto h-full relative bg-gray-200">
           {/* Content with conditional blur */}
-          <div className={`${isProcessing ? 'blur-sm opacity-50' : ''} transition-all duration-300`}>
+          <div className={`${(isProcessing || thinkingStep || streamingMessageId !== null) ? 'blur-sm opacity-50' : ''} transition-all duration-300`}>
             {renderDataPanel()}
           </div>
           
           {/* Processing Overlay */}
-          {isProcessing && (
+          {(isProcessing || thinkingStep || streamingMessageId !== null) && (
             <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-20 backdrop-blur-sm">
               <ProcessingAnimation />
             </div>

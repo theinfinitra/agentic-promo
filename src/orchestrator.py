@@ -11,6 +11,7 @@ from tools.optimized_data_tool import get_data
 from tools.promotion_tool import create_promotion  
 from tools.email_tool import send_email
 from tools.ui_agent_tool import generate_ui_component
+from tools.segmentation_tool import analyze_customer_segments, calculate_rfm_scores, get_segment_insights
 from streaming import create_streaming_callback, send_stream_message
 
 class DecimalEncoder(json.JSONEncoder):
@@ -35,34 +36,66 @@ def create_streaming_agent(stream_context):
     data_context = get_data_source_context()
     
     system_prompt = f"""
-    Data and UI assistant with multiple capabilities.
+    Advanced promotion engine with hybrid data architecture and customer segmentation.
     
     {data_context}
     
     AVAILABLE TOOLS:
-    - get_data: Fast data retrieval with minimal processing
-    - create_promotion: Create new promotions with business logic
-    - send_email: Send emails via AWS SES
-    - generate_ui_component: Generate UI components for data display
+    - get_data: Hybrid data retrieval (DynamoDB operational + Aurora analytical)
+    - analyze_customer_segments: Advanced segmentation analysis with RFM, behavioral insights
+    - calculate_rfm_scores: RFM (Recency, Frequency, Monetary) scoring for customers
+    - get_segment_insights: Actionable insights and recommendations for specific segments
+    - create_promotion: Create targeted promotions with business logic
+    - send_email: Send personalized emails via AWS SES
+    - generate_ui_component: Generate UI component configurations (JSON) for frontend integration
     
-    WORKFLOW FOR DATA REQUESTS:
-    1. Get requested data using get_data tool
-    2. Generate UI component using generate_ui_component tool with output_format="html"
-    3. Combine data + UI HTML in response
+    RESPONSE FORMATTING RULES:
+    - NEVER return raw JSON to users
+    - For "show/list/display" queries: Create HTML tables with proper styling
+    - Use markdown for simple text responses
+    - Make responses visually appealing and human-friendly
     
-    WORKFLOW FOR CREATION REQUESTS:
-    1. Generate form UI using generate_ui_component tool with output_format="html"
-    2. When user submits form, use create_promotion tool
-    3. Generate confirmation UI using generate_ui_component tool
+    HTML TABLE FORMAT FOR DATA DISPLAY:
+    ```html
+    <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50">
+    <tr><th class="px-6 py-3 text-left text-sm font-medium text-gray-900">Column</th></tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+    <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Data</td></tr>
+    </tbody>
+    </table>
+    </div>
+    ```
     
-    Always use generate_ui_component to create rich UI configurations.
-    Be concise and focus on user experience.
+    DATA MODIFICATION WORKFLOW (CRITICAL):
+    - NEVER execute create/update/delete operations immediately
+    - Always present a detailed plan first
+    - Required details: amount, dates, target audience, conditions
+    - Ask "Shall I proceed? Please confirm (yes/no)"
+    - Only execute after explicit user confirmation
+    
+    INTENT DETECTION:
+    - "show/list/display/view" → Get data + Format as HTML table
+    - "create/update/delete/modify" → Plan + confirmation workflow
+    - "analyze/insights/segments" → Analysis + HTML formatting
+    - Use generate_ui_component only for interactive frontend components
+    
+    CONFIRMATION PATTERN FOR DATA CHANGES:
+    1. "I understand you want to [action]"
+    2. "Here's what I'll create/update:"
+    3. "Details: [specific parameters needed]"
+    4. "Shall I proceed? Please confirm."
+    
+    Always provide actionable insights with properly formatted, visually appealing responses.
     """
     
     agent = Agent(
         model="us.amazon.nova-premier-v1:0",
         system_prompt=system_prompt,
-        tools=[get_data, create_promotion, send_email, generate_ui_component],  # Pass Strands tools directly
+        tools=[get_data, create_promotion, send_email, generate_ui_component, 
+               analyze_customer_segments, calculate_rfm_scores, get_segment_insights],  # Enhanced with segmentation tools
         callback_handler=callback_handler       # Strands-native streaming
     )
     
@@ -204,9 +237,13 @@ def lambda_handler(event, context):
         # Create streaming agent
         agent = create_streaming_agent(stream_context)
         
+        print(f"🚀 Executing agent with streaming enabled...")
+        
         # Execute agent with streaming
         response = agent(user_input.strip())
         response_text = str(response)
+        
+        print(f"✅ Agent execution complete. Response length: {len(response_text)}")
         
         # Fast structured data extraction
         structured_data = extract_structured_data_fast(response_text)

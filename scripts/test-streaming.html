@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Streaming WebSocket Test</title>
+</head>
+<body>
+    <h1>Streaming WebSocket Test</h1>
+    <button onclick="testStreaming()">Test Streaming Response</button>
+    <div id="log"></div>
+
+    <script>
+        const ws = new WebSocket('wss://xmgfz4v73a.execute-api.us-east-1.amazonaws.com/dev');
+        
+        ws.onopen = () => {
+            log('Connected to WebSocket');
+        };
+        
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            log('Received: ' + JSON.stringify(message, null, 2));
+        };
+        
+        function testStreaming() {
+            // Send test message
+            ws.send(JSON.stringify({
+                input: "Show VIP customers",
+                intent: "general"
+            }));
+        }
+        
+        function log(message) {
+            document.getElementById('log').innerHTML += '<pre>' + message + '</pre>';
+        }
+    </script>
+</body>
+</html>

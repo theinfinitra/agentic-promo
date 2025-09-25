@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Package Lambda function with Strands Agents dependencies
+# Package Lambda function with Strands Agents dependencies + Streaming
 # Usage: ./package-lambda.sh
 
 set -e
 
-echo "📦 Packaging Lambda function with Strands Agents..."
+echo "📦 Packaging Streaming Lambda function for x86_64 architecture..."
 
 # Create build directory
 BUILD_DIR="build"
@@ -16,10 +16,12 @@ mkdir -p $BUILD_DIR
 echo "📋 Copying source code..."
 cp -r src/* $BUILD_DIR/
 
-# Install dependencies
-echo "🔧 Installing dependencies..."
+# Install dependencies for x86_64 architecture
+echo "🔧 Using existing Lambda layer for dependencies..."
 cd $BUILD_DIR
-pip3 install -r requirements.txt -t .
+
+# Copy only the source code - dependencies come from layer
+echo "✅ Source code copied, using layer for dependencies"
 
 # Remove unnecessary files to reduce package size
 echo "🧹 Cleaning up package..."
@@ -35,8 +37,10 @@ zip -r ../agentic-promo-lambda.zip . -q
 cd ..
 echo "✅ Lambda package created: agentic-promo-lambda.zip"
 echo "📊 Package size: $(du -h agentic-promo-lambda.zip | cut -f1)"
+echo "🔧 Using existing Lambda layer for dependencies"
+echo "🔧 Package contains only source code"
 
 # Clean up build directory
 rm -rf $BUILD_DIR
 
-echo "🚀 Ready to deploy to Lambda!"
+echo "🚀 Ready to deploy to Lambda with layer dependencies!"
