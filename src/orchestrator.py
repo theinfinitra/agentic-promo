@@ -205,8 +205,47 @@ def extract_structured_data_fast(response_text):
         print(f"Error extracting structured data: {e}")
         return None
 
+def classify_and_parse_input(user_input):
+    """Smart input classification with structured data extraction"""
+    try:
+        # Form submissions - direct tool routing
+        if user_input.startswith("Submit form:"):
+            json_str = user_input.replace("Submit form:", "").strip()
+            form_data = json.loads(json_str)
+            return {
+                "type": "direct_tool_call",
+                "tool": "create_promotion",
+                "params": form_data,
+                "original": user_input
+            }
+        
+        # Natural language - agent processing
+        else:
+            return {
+                "type": "agent_processing",
+                "input": user_input
+            }
+            
+    except Exception as e:
+        # Fallback to agent processing on any parsing error
+        return {
+            "type": "agent_processing", 
+            "input": user_input
+        }
+
+def execute_tool_directly(tool_name, params):
+    """Execute tool directly with structured parameters"""
+    tools_map = {
+        "create_promotion": create_promotion
+    }
+    
+    if tool_name in tools_map:
+        return tools_map[tool_name](**params)
+    else:
+        raise ValueError(f"Unknown tool: {tool_name}")
+
 def lambda_handler(event, context):
-    """Streaming modular agent Lambda handler"""
+    """Hybrid orchestrator with direct tool routing and agent processing"""
     try:
         connection_id = event['requestContext']['connectionId']
         domain_name = event['requestContext']['domainName']
@@ -215,7 +254,7 @@ def lambda_handler(event, context):
         body = json.loads(event.get('body', '{}'))
         user_input = body.get('input', '')
         
-        print(f"🔧 Streaming Agent - Processing: {user_input}")
+        print(f"🔧 Hybrid Orchestrator - Processing: {user_input}")
         
         # Create streaming context
         stream_context = {
@@ -224,36 +263,82 @@ def lambda_handler(event, context):
             'stage': stage
         }
         
-        # Send acknowledgment
-        send_stream_message(stream_context, {
-            "type": "acknowledgment",
-            "message": f"🔧 Starting workflow with 4 tools..."
-        })
+        # Set stream context for tools
+        from tools.optimized_data_tool import set_stream_context
+        set_stream_context(stream_context)
         
-        # Ensure user input is not empty
-        if not user_input or not user_input.strip():
-            user_input = "Hello, I need help with data analysis."
+        # Classify and parse input
+        parsed_request = classify_and_parse_input(user_input)
         
-        # Create streaming agent
-        agent = create_streaming_agent(stream_context)
+        if parsed_request["type"] == "direct_tool_call":
+            # ORCHESTRATOR HANDLES: Direct tool execution
+            print(f"🎯 Direct tool call: {parsed_request['tool']}")
+            
+            send_stream_message(stream_context, {
+                "type": "acknowledgment",
+                "message": f"🔧 Executing {parsed_request['tool']}..."
+            })
+            
+            try:
+                result = execute_tool_directly(
+                    tool_name=parsed_request["tool"],
+                    params=parsed_request["params"]
+                )
+                
+                # Parse result for structured data
+                result_data = json.loads(result) if isinstance(result, str) else result
+                
+                send_stream_message(stream_context, {
+                    "type": "response",
+                    "chat_response": f"✅ {parsed_request['tool']} completed successfully",
+                    "structured_data": {
+                        "type": "json",
+                        "content": result_data
+                    }
+                })
+                
+            except Exception as tool_error:
+                print(f"❌ Tool execution failed: {tool_error}")
+                # Fallback to agent processing
+                parsed_request = {
+                    "type": "agent_processing",
+                    "input": f"Handle form submission error: {str(tool_error)}. Original request: {user_input}"
+                }
         
-        print(f"🚀 Executing agent with streaming enabled...")
-        
-        # Execute agent with streaming
-        response = agent(user_input.strip())
-        response_text = str(response)
-        
-        print(f"✅ Agent execution complete. Response length: {len(response_text)}")
-        
-        # Fast structured data extraction
-        structured_data = extract_structured_data_fast(response_text)
-        
-        # Send final response
-        send_stream_message(stream_context, {
-            "type": "response",
-            "chat_response": response_text,
-            "structured_data": structured_data
-        })
+        if parsed_request["type"] == "agent_processing":
+            # AGENT HANDLES: Natural language processing
+            print(f"🤖 Agent processing: {parsed_request['input']}")
+            
+            send_stream_message(stream_context, {
+                "type": "acknowledgment",
+                "message": f"🔧 Starting AI analysis with 6 tools..."
+            })
+            
+            # Ensure user input is not empty
+            agent_input = parsed_request["input"]
+            if not agent_input or not agent_input.strip():
+                agent_input = "Hello, I need help with data analysis."
+            
+            # Create streaming agent
+            agent = create_streaming_agent(stream_context)
+            
+            print(f"🚀 Executing agent with streaming enabled...")
+            
+            # Execute agent with streaming
+            response = agent(agent_input.strip())
+            response_text = str(response)
+            
+            print(f"✅ Agent execution complete. Response length: {len(response_text)}")
+            
+            # Fast structured data extraction
+            structured_data = extract_structured_data_fast(response_text)
+            
+            # Send final response
+            send_stream_message(stream_context, {
+                "type": "response",
+                "chat_response": response_text,
+                "structured_data": structured_data
+            })
         
         return {"statusCode": 200}
         

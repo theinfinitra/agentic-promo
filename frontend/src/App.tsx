@@ -287,7 +287,12 @@ function App() {
       </svg>
       <p className="font-medium text-trust">AI Agents Working...</p>
       {thinkingStep && (
-        <p className="text-sm mt-1 text-secondary">🤔 {thinkingStep}</p>
+        <p className="text-sm mt-1 text-secondary">
+          <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+          </svg>
+          {thinkingStep}
+        </p>
       )}
       {!thinkingStep && (
         <p className="text-sm mt-1 text-secondary">Processing your request</p>
@@ -351,11 +356,6 @@ function App() {
     if (currentData.type === 'html' && currentData.content) {
       return (
         <div className="data-panel">
-          {/* Content Title */}
-          <div className="mb-6">
-            <h2 className="text-xl font-bold" style={{color: 'var(--trust-green)'}}>{getDataPanelTitle()}</h2>
-          </div>
-          
           {/* HTML Content */}
           <div 
             dangerouslySetInnerHTML={{ __html: formatDataContent(currentData.content) }}
@@ -369,18 +369,12 @@ function App() {
       case 'table':
         return (
           <div className="data-panel">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold" style={{color: 'var(--trust-green)'}}>{getDataPanelTitle()}</h2>
-            </div>
             <TableComponent data={currentData} onAction={handleTableAction} />
           </div>
         );
       case 'form':
         return (
           <div className="data-panel">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold" style={{color: 'var(--trust-green)'}}>{getDataPanelTitle()}</h2>
-            </div>
             <FormComponent data={currentData} onSubmit={handleFormSubmit} />
           </div>
         );
@@ -526,7 +520,12 @@ function App() {
                       {thinkingStep ? 'Thinking...' : 'Processing your request...'}
                     </p>
                     {thinkingStep && (
-                      <p className="text-xs text-gray-600 mt-1">🤔 {thinkingStep}</p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                        </svg>
+                        {thinkingStep}
+                      </p>
                     )}
                   </div>
                 </div>

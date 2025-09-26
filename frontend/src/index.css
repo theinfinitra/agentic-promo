@@ -10,29 +10,29 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
-/* Professional Color Scheme */
+/* Simplified Color Palette */
 :root {
-  --trust-green: #174D38;      /* Deep green - trust, primary actions */
-  --accent-brown: #4D1717;     /* Rich brown - sophistication, accents */
-  --neutral-gray: #CBCBCB;     /* Cool gray - borders, secondary text */
-  --background-light: #F2F2F2; /* Light gray - backgrounds, panels */
-  --text-primary: #2D3748;     /* Dark text for readability */
-  --text-secondary: #718096;   /* Medium gray text */
-  --border-light: var(--neutral-gray);
-  --shadow-soft: 0 4px 12px rgba(23, 77, 56, 0.1);
-  --shadow-medium: 0 8px 24px rgba(23, 77, 56, 0.15);
+  --primary: #174D38;        /* Main brand green - buttons, headers, status */
+  --secondary: #718096;      /* Gray text, borders, inactive states */
+  --background: #F8F9FA;     /* Light backgrounds, panels */
+  --surface: #FFFFFF;        /* Cards, forms, overlays */
+  --success: #10B981;        /* Success states, positive actions */
+  --warning: #4D1717;        /* Warnings, pending states */
+  --error: #EF4444;          /* Errors, destructive actions */
+  --info: #174D38;           /* Information, links, focus states */
+  --shadow: 0 4px 12px rgba(23, 77, 56, 0.1);
 }
 
 /* Professional data panel with animations */
 .data-panel {
   @apply bg-white rounded-xl shadow-lg border border-gray-100 p-8 transition-all duration-300;
-  background-color: var(--neutral-warm);
-  box-shadow: var(--shadow-soft);
+  background-color: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .data-panel.processing {
   @apply animate-pulse;
-  background: linear-gradient(90deg, var(--neutral-warm) 0%, #ffffff 50%, var(--neutral-warm) 100%);
+  background: linear-gradient(90deg, var(--background) 0%, var(--surface) 50%, var(--background) 100%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
@@ -55,9 +55,9 @@
 
 /* Style success notifications */
 .data-panel [class*="rounded-lg"][class*="shadow"] {
-  background-color: var(--neutral-warm) !important;
-  border: 2px solid var(--success-green) !important;
-  box-shadow: var(--shadow-soft) !important;
+  background-color: var(--surface) !important;
+  border: 2px solid var(--secondary) !important;
+  box-shadow: var(--shadow) !important;
   border-radius: 16px !important;
   padding: 24px !important;
   margin: 0 auto !important;
@@ -68,7 +68,7 @@
   animation: modalSlideIn 0.4s ease-out forwards;
 }
 
-/* Agent working animation - simple color transitions */
+/* Agent working animation - simplified */
 .agent-working {
   width: 60px;
   height: 60px;
@@ -87,11 +87,8 @@
 }
 
 @keyframes colorCycle {
-  0% { background-color: var(--trust-green); }
-  25% { background-color: var(--accent-brown); }
-  50% { background-color: #3B82F6; }
-  75% { background-color: #8B5CF6; }
-  100% { background-color: var(--trust-green); }
+  0%, 100% { background-color: var(--primary); }
+  50% { background-color: var(--info); }
 }
 
 @keyframes modalSlideIn {
@@ -103,7 +100,7 @@
 
 /* Success icon styling */
 .data-panel svg {
-  color: var(--success-green) !important;
+  color: var(--success) !important;
   width: 32px !important;
   height: 32px !important;
 }
@@ -117,26 +114,29 @@
 }
 
 .data-panel button:first-of-type {
-  background-color: white !important;
-  border: 2px solid var(--border-light) !important;
-  color: var(--text-primary) !important;
+  background-color: var(--primary) !important;
+  border: 2px solid var(--secondary) !important;
+  color: var(--background) !important;
 }
 
 .data-panel button:first-of-type:hover {
-  border-color: var(--trust-blue) !important;
-  color: var(--trust-blue) !important;
+  background-color: var(--background) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
   transform: translateY(-1px) !important;
 }
 
 .data-panel button:last-of-type {
-  background: linear-gradient(135deg, var(--urgency-orange), #E55A2B) !important;
-  color: white !important;
-  border: none !important;
+  background: var(--primary) !important;
+  color: var(--background) !important;
+  border: 2px solid var(--secondary) !important;
 }
 
 .data-panel button:last-of-type:hover {
+  background: var(--background) !important;
+  color: var(--primary) !important;
   transform: translateY(-1px) scale(1.02) !important;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.3) !important;
 }
 
 /* Professional chat panel - vertical layout */
@@ -150,24 +150,24 @@
 /* Enhanced message styling */
 .message-user {
   @apply text-white rounded-xl px-5 py-3 ml-auto max-w-sm font-medium;
-  background-color: var(--trust-green) !important;
+  background-color: var(--primary) !important;
   color: white !important;
   box-shadow: 0 2px 8px rgba(23, 77, 56, 0.3);
 }
 
 .message-agent {
   @apply bg-white border border-gray-100 rounded-xl px-5 py-3 mr-auto max-w-lg;
-  background-color: var(--background-light) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-light) !important;
-  box-shadow: var(--shadow-soft);
+  background-color: var(--background) !important;
+  color: var(--secondary) !important;
+  border-color: var(--secondary) !important;
+  box-shadow: var(--shadow);
 }
 
 /* Target the actual HTML table classes being rendered */
 .min-w-full {
   @apply w-full border-collapse overflow-hidden;
-  box-shadow: var(--shadow-soft);
-  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--secondary);
   border-radius: 0;
   opacity: 0;
   transform: translateY(10px);
@@ -177,10 +177,10 @@
 /* Header styling for actual HTML */
 .min-w-full thead th {
   @apply font-semibold text-left text-sm uppercase tracking-wide;
-  background: linear-gradient(135deg, #60A5FA, #3B82F6) !important;
+  background: var(--primary) !important;
   color: white !important;
   letter-spacing: 0.05em;
-  border-bottom: 2px solid #3B82F6;
+  border-bottom: 2px solid var(--primary);
   border-right: 1px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -190,9 +190,9 @@
 
 /* Body cell styling for actual HTML */
 .min-w-full tbody td {
-  color: var(--text-primary) !important;
-  border-right: 1px solid var(--border-light);
-  border-bottom: 1px solid var(--border-light);
+  color: var(--secondary) !important;
+  border-right: 1px solid var(--secondary);
+  border-bottom: 1px solid var(--secondary);
   transition: all 0.2s ease;
   font-weight: 500;
 }
@@ -203,11 +203,11 @@
 
 /* Alternate row colors (zebra striping) for actual HTML */
 .min-w-full tbody tr:nth-child(even) {
-  background-color: rgba(248, 246, 243, 0.5) !important;
+  background-color: var(--background) !important;
 }
 
 .min-w-full tbody tr:nth-child(odd) {
-  background-color: white !important;
+  background-color: var(--surface) !important;
 }
 
 /* Enhanced hover effects for actual HTML */
@@ -217,13 +217,13 @@
 }
 
 .min-w-full tbody tr:hover {
-  background-color: rgba(0, 102, 204, 0.08) !important;
+  background-color: rgba(23, 77, 56, 0.08) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
+  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.15);
 }
 
 .min-w-full tbody tr:hover td {
-  color: var(--trust-blue) !important;
+  color: var(--info) !important;
   font-weight: 600;
 }
 
@@ -236,19 +236,19 @@
 
 /* Style email cells specifically */
 .min-w-full tbody td:nth-child(3) {
-  color: var(--trust-blue) !important;
+  color: var(--info) !important;
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
 }
 
 .min-w-full tbody td:nth-child(3):hover {
-  color: #0052A3 !important;
+  color: var(--primary) !important;
 }
 
 /* Style monetary values */
 .min-w-full tbody td:nth-child(5) {
-  color: var(--success-green) !important;
+  color: var(--success) !important;
   font-weight: 700;
   font-family: 'Monaco', 'Menlo', monospace;
 }
@@ -262,17 +262,23 @@
 
 /* Universal form styling - works with any HTML structure */
 .data-panel form {
-  background-color: var(--neutral-warm) !important;
-  box-shadow: var(--shadow-soft) !important;
-  border: 1px solid var(--border-light) !important;
+  background-color: var(--surface) !important;
+  box-shadow: var(--shadow) !important;
+  border: 1px solid var(--secondary) !important;
   border-radius: 16px !important;
   padding: 32px !important;
   opacity: 0;
   transform: translateY(10px);
   animation: formSlideIn 0.4s ease-out forwards;
-  max-width: 600px !important;
+  max-width: 400px !important;
   margin: 0 auto !important;
-  width: 90% !important;
+  width: 60% !important;
+}
+
+/* Higher specificity to override conflicting rounded-lg shadow rule */
+.data-panel form.form-component {
+  max-width: 400px !important;
+  width: 60% !important;
 }
 
 /* Universal form title styling */
@@ -280,7 +286,7 @@
 .data-panel form h2,
 .data-panel form h3,
 .data-panel form h4 {
-  color: var(--trust-blue) !important;
+  color: var(--info) !important;
   font-size: 24px !important;
   font-weight: 700 !important;
   margin-bottom: 24px !important;
@@ -289,7 +295,7 @@
 
 /* Universal label styling */
 .data-panel form label {
-  color: var(--text-primary) !important;
+  color: var(--secondary) !important;
   font-weight: 600 !important;
   font-size: 14px !important;
   margin-bottom: 8px !important;
@@ -300,12 +306,12 @@
 .data-panel form input,
 .data-panel form textarea,
 .data-panel form select {
-  background-color: white !important;
-  border: 2px solid var(--border-light) !important;
+  background-color: var(--surface) !important;
+  border: 2px solid var(--secondary) !important;
   border-radius: 12px !important;
   padding: 12px 16px !important;
   font-size: 14px !important;
-  color: var(--text-primary) !important;
+  color: var(--secondary) !important;
   transition: all 0.2s ease !important;
   width: 100% !important;
   box-sizing: border-box !important;
@@ -316,8 +322,8 @@
 .data-panel form textarea:focus,
 .data-panel form select:focus {
   outline: none !important;
-  border-color: var(--trust-blue) !important;
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1) !important;
+  border-color: var(--secondary) !important;
+  box-shadow: 0 0 0 3px rgba(113, 128, 150, 0.1) !important;
   transform: translateY(-1px);
 }
 
@@ -325,16 +331,16 @@
 .data-panel form input:hover,
 .data-panel form textarea:hover,
 .data-panel form select:hover {
-  border-color: var(--trust-blue) !important;
+  border-color: var(--secondary) !important;
 }
 
 /* Universal submit button styling */
 .data-panel form button[type="submit"],
 .data-panel form input[type="submit"],
 .data-panel form button:last-child {
-  background: linear-gradient(135deg, var(--urgency-orange), #E55A2B) !important;
-  color: white !important;
-  border: none !important;
+  background: var(--primary) !important;
+  color: var(--background) !important;
+  border: 2px solid var(--secondary) !important;
   border-radius: 12px !important;
   padding: 14px 28px !important;
   font-size: 16px !important;
@@ -343,14 +349,16 @@
   transition: all 0.2s ease !important;
   width: 100% !important;
   margin-top: 16px !important;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.1) !important;
 }
 
 .data-panel form button[type="submit"]:hover,
 .data-panel form input[type="submit"]:hover,
 .data-panel form button:last-child:hover {
+  background: var(--background) !important;
+  color: var(--primary) !important;
   transform: translateY(-2px) scale(1.02) !important;
-  box-shadow: 0 6px 16px rgba(255, 107, 53, 0.4) !important;
+  box-shadow: 0 6px 16px rgba(23, 77, 56, 0.4) !important;
 }
 
 .data-panel form button[type="submit"]:active,
@@ -393,8 +401,8 @@
 /* Action buttons with SVG icons */
 .min-w-full tbody td button {
   padding: 8px !important;
-  border: none !important;
-  background: none !important;
+  border: 2px solid var(--secondary) !important;
+  background: var(--primary) !important;
   cursor: pointer !important;
   transition: all 0.2s ease !important;
   border-radius: 6px !important;
@@ -409,7 +417,8 @@
 }
 
 .min-w-full tbody td button:hover {
-  background-color: rgba(23, 77, 56, 0.1) !important;
+  background-color: var(--background) !important;
+  border-color: var(--primary) !important;
   transform: scale(1.05) !important;
 }
 
@@ -438,7 +447,8 @@
 }
 
 .min-w-full tbody td button.text-red-600:hover {
-  background-color: rgba(220, 38, 38, 0.1) !important;
+  background-color: var(--background) !important;
+  border-color: var(--primary) !important;
 }
 
 /* Center status values vertically */
@@ -479,22 +489,24 @@
 button[type="submit"].bg-blue-600.text-white.px-4.py-2.rounded,
 .data-panel button.bg-blue-600,
 div button.bg-blue-600 {
-  background: linear-gradient(135deg, var(--trust-green), #0F3A2A) !important;
-  background-color: var(--trust-green) !important;
-  color: white !important;
-  border: none !important;
+  background: var(--primary) !important;
+  background-color: var(--primary) !important;
+  color: var(--background) !important;
+  border: 2px solid var(--secondary) !important;
   padding: 12px 24px !important;
   border-radius: 8px !important;
   font-weight: 600 !important;
   transition: all 0.2s ease !important;
-  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.1) !important;
 }
 
 button[type="submit"].bg-blue-600:hover,
 .data-panel button.bg-blue-600:hover,
 div button.bg-blue-600:hover {
-  background: linear-gradient(135deg, #1A5A42, var(--trust-green)) !important;
-  background-color: #1A5A42 !important;
+  background: var(--background) !important;
+  background-color: var(--background) !important;
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
   box-shadow: 0 6px 16px rgba(23, 77, 56, 0.4) !important;
   transform: translateY(-1px) scale(1.02) !important;
 }
@@ -506,7 +518,7 @@ div button.bg-blue-600:hover {
 .min-w-full tbody td.bg-purple-100,
 .min-w-full tbody td.bg-red-100 {
   background: none !important;
-  color: #1E40AF !important;
+  color: var(--info) !important;
   font-weight: 600 !important;
   text-align: left !important;
   border-radius: 0 !important;
@@ -519,9 +531,9 @@ div button.bg-blue-600:hover {
 
 /* Connected send button - professional green */
 button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disabled\:transform-none {
-  background: var(--trust-green) !important;
-  color: white !important;
-  border: none !important;
+  background: var(--primary) !important;
+  color: var(--background) !important;
+  border: 2px solid var(--secondary) !important;
   border-radius: 0 12px 12px 0 !important;
   padding: 12px 16px !important;
   font-weight: 600 !important;
@@ -538,16 +550,22 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
   margin-left: 0 !important;
 }
 
+button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disabled\:transform-none:hover:not(:disabled) {
+  background: var(--background) !important;
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
 /* Disabled state - neutral gray */
 button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disabled\:transform-none:disabled {
-  background: var(--neutral-gray) !important;
+  background: var(--secondary) !important;
   cursor: not-allowed !important;
   opacity: 1 !important;
   border: none !important;
 }
 
 button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disabled\:transform-none svg {
-  stroke: white !important;
+  stroke: var(--background) !important;
   fill: none !important;
   transition: transform 0.2s ease !important;
   width: 24px !important;
@@ -560,19 +578,20 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 }
 
 button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disabled\:transform-none:hover:not(:disabled) svg {
+  stroke: var(--primary) !important;
   transform: scale(1.2) !important;
 }
 
 /* Connection status indicators - more prominent */
 .status-connected {
-  background-color: var(--trust-green) !important;
-  box-shadow: 0 0 12px rgba(23, 77, 56, 0.6) !important;
+  background-color: var(--success) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.6) !important;
   width: 12px !important;
   height: 12px !important;
 }
 
 .status-connecting {
-  background-color: var(--accent-brown) !important;
+  background-color: var(--warning) !important;
   box-shadow: 0 0 12px rgba(77, 23, 23, 0.6) !important;
   animation: pulse 2s infinite;
   width: 12px !important;
@@ -580,8 +599,8 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 }
 
 .status-disconnected {
-  background-color: #DC2626 !important;
-  box-shadow: 0 0 12px rgba(220, 38, 38, 0.6) !important;
+  background-color: var(--error) !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
   width: 12px !important;
   height: 12px !important;
 }
@@ -591,16 +610,16 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
   outline: none !important;
   ring: none !important;
   box-shadow: none !important;
-  border-color: var(--border-light) !important;
+  border-color: var(--secondary) !important;
 }
 
 /* Update table headers with professional green */
 .min-w-full thead th {
   @apply font-semibold text-left text-sm tracking-wide;
-  background: linear-gradient(135deg, var(--trust-green), #0F3A2A) !important;
+  background: var(--primary) !important;
   color: white !important;
   letter-spacing: 0.05em;
-  border-bottom: 2px solid var(--trust-green);
+  border-bottom: 2px solid var(--primary);
   border-right: 1px solid rgba(255, 255, 255, 0.2);
   padding: 16px 20px !important;
   vertical-align: middle !important;
@@ -609,9 +628,9 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 
 /* Table cell styling with proper padding */
 .min-w-full tbody td {
-  color: var(--text-primary) !important;
-  border-right: 1px solid var(--border-light);
-  border-bottom: 1px solid var(--border-light);
+  color: var(--secondary) !important;
+  border-right: 1px solid var(--secondary);
+  border-bottom: 1px solid var(--secondary);
   transition: all 0.2s ease;
   font-weight: 500;
   vertical-align: middle !important;
@@ -642,30 +661,35 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 
 .form-field {
   @apply block w-full px-4 py-3 border border-gray-200 rounded-lg text-sm transition-all duration-200;
-  color: var(--text-primary);
-  background-color: white;
+  color: var(--secondary);
+  background-color: var(--surface);
+  border-color: var(--secondary);
 }
 
 .form-field:focus {
   @apply outline-none ring-2 border-transparent;
-  ring-color: var(--trust-blue);
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+  ring-color: var(--secondary);
+  box-shadow: 0 0 0 3px rgba(113, 128, 150, 0.1);
 }
 
 .form-field:hover {
-  border-color: var(--trust-blue);
+  border-color: var(--secondary);
 }
 
 /* Professional button styling */
 .btn-primary {
   @apply font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform;
-  background: linear-gradient(135deg, var(--trust-green), #0F3A2A);
-  color: white;
-  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.3);
+  background: var(--primary);
+  color: var(--background);
+  border: 2px solid var(--secondary);
+  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.1);
 }
 
 .btn-primary:hover {
   @apply scale-105;
+  background: var(--background);
+  color: var(--primary);
+  border-color: var(--primary);
   box-shadow: 0 6px 16px rgba(23, 77, 56, 0.4);
   transform: translateY(-1px) scale(1.02);
 }
@@ -677,15 +701,16 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 
 .btn-secondary {
   @apply font-medium py-3 px-6 rounded-lg transition-all duration-200 border;
-  background-color: white;
-  color: var(--text-secondary);
-  border-color: var(--border-light);
+  background-color: var(--primary);
+  color: var(--background);
+  border-color: var(--secondary);
 }
 
 .btn-secondary:hover {
-  color: var(--trust-blue);
-  border-color: var(--trust-blue);
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.15);
+  background-color: var(--background);
+  color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(23, 77, 56, 0.15);
 }
 
 /* Professional badges and status indicators */
@@ -694,75 +719,77 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 }
 
 .badge-vip {
-  background: linear-gradient(135deg, #FFD700, #FFA500);
-  color: #8B4513;
+  background: var(--success);
+  color: white;
 }
 
 .badge-premium {
-  background: linear-gradient(135deg, #C0C0C0, #A8A8A8);
-  color: #4A4A4A;
+  background: var(--info);
+  color: white;
 }
 
 .badge-regular {
-  background: linear-gradient(135deg, #E5E7EB, #D1D5DB);
-  color: var(--text-secondary);
+  background: var(--secondary);
+  color: white;
 }
 
 .badge-active {
-  background-color: var(--success-green);
+  background-color: var(--success);
   color: white;
 }
 
 .badge-inactive {
-  background-color: var(--text-secondary);
+  background-color: var(--secondary);
   color: white;
 }
 
 /* Professional action buttons */
 .action-btn {
   @apply px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 border;
-  background-color: white;
-  color: var(--trust-blue);
-  border-color: var(--trust-blue);
+  background-color: var(--primary);
+  color: var(--background);
+  border-color: var(--secondary);
   min-width: 80px;
 }
 
 .action-btn:hover {
-  background-color: var(--trust-blue);
-  color: white;
+  background-color: var(--background);
+  color: var(--primary);
+  border-color: var(--primary);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+  box-shadow: 0 4px 12px rgba(23, 77, 56, 0.3);
 }
 
 .action-btn-danger {
-  color: #DC2626;
-  border-color: #DC2626;
+  color: var(--error);
+  border-color: var(--secondary);
 }
 
 .action-btn-danger:hover {
-  background-color: #DC2626;
+  background-color: var(--error);
   color: white;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+  border-color: var(--error);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 /* Table loading skeleton */
 .table-skeleton {
   @apply w-full border-collapse rounded-xl overflow-hidden;
-  box-shadow: var(--shadow-soft);
-  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--secondary);
   animation: pulse 2s infinite;
 }
 
 .table-skeleton-row {
   @apply h-12;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--background) 25%, var(--surface) 50%, var(--background) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 .table-skeleton-header {
   @apply h-14;
-  background: linear-gradient(90deg, var(--trust-blue) 25%, #0052A3 50%, var(--trust-blue) 75%);
+  background: linear-gradient(90deg, var(--primary) 25%, var(--info) 50%, var(--primary) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -770,7 +797,7 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 /* Professional loading states */
 .loading-spinner {
   @apply inline-block w-5 h-5 border-2 border-gray-200 rounded-full;
-  border-top-color: var(--trust-blue);
+  border-top-color: var(--info);
   animation: spin 1s linear infinite;
 }
 
@@ -780,20 +807,20 @@ button.send-btn-connected.disabled\:opacity-50.disabled\:cursor-not-allowed.disa
 
 /* Professional connection status */
 .status-connected {
-  background-color: var(--success-green);
-  box-shadow: 0 0 8px rgba(0, 168, 107, 0.4);
+  background-color: var(--success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
 }
 
 .status-disconnected {
-  background-color: #DC2626;
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+  background-color: var(--error);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
 /* Professional input focus states */
 input:focus, textarea:focus, select:focus {
   @apply outline-none;
-  border-color: var(--trust-blue);
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 3px rgba(113, 128, 150, 0.1);
 }
 
 /* Professional hover effects for interactive elements */
@@ -803,37 +830,37 @@ input:focus, textarea:focus, select:focus {
 
 .interactive-element:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow);
 }
 
 /* Professional typography */
 h1, h2, h3, h4, h5, h6 {
-  color: var(--text-primary);
+  color: var(--secondary);
   font-weight: 600;
 }
 
 .text-success {
-  color: var(--success-green);
+  color: var(--success);
 }
 
 .text-trust {
-  color: var(--trust-blue);
+  color: var(--info);
 }
 
 .text-urgency {
-  color: var(--urgency-orange);
+  color: var(--warning);
 }
 
 /* Thinking block styles */
 .thinking-block {
   @apply bg-gray-50 border-l-4 border-gray-300 rounded-r-lg p-3 my-2 text-sm;
-  border-left-color: var(--text-secondary);
+  border-left-color: var(--secondary);
   background-color: rgba(113, 128, 150, 0.05);
 }
 
 .thinking-header {
   @apply font-medium text-xs uppercase tracking-wide mb-2;
-  color: var(--text-secondary);
+  color: var(--secondary);
 }
 
 .thinking-content {

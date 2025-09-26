@@ -263,6 +263,7 @@ Resources:
       BackupRetentionPeriod: 7
       PreferredBackupWindow: "03:00-04:00"
       PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
+      EnableHttpEndpoint: true  # Enable RDS Data API
       Tags:
         - Key: Name
           Value: !Sub '${AWS::StackName}-analytics-cluster'
@@ -394,6 +395,7 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonRDSDataFullAccess
       Policies:
         - PolicyName: DynamoDBAccess
           PolicyDocument:
@@ -450,6 +452,16 @@ Resources:
                   - rds-data:CommitTransaction
                   - rds-data:RollbackTransaction
                 Resource: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: 
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:agentic-promo/aurora/credentials-*'
 
   # WebSocket API Gateway
   WebSocketApi:

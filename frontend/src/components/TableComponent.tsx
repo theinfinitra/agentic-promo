@@ -25,7 +25,7 @@ export const TableComponent: React.FC<TableComponentProps> = ({ data, onAction }
         return (
           <a 
             href={`mailto:${value}`}
-            className="text-trust hover:underline font-medium transition-all duration-200 hover:text-blue-700"
+            className="text-info hover:underline font-medium transition-all duration-200 hover:text-primary"
           >
             {value}
           </a>
@@ -65,10 +65,6 @@ export const TableComponent: React.FC<TableComponentProps> = ({ data, onAction }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      {data.title && (
-        <h2 className="text-xl font-bold mb-4 text-gray-900">{data.title}</h2>
-      )}
-      
       <div className="overflow-x-auto">
         <table className="table-component">
           <thead>
@@ -117,8 +113,8 @@ export const TableComponent: React.FC<TableComponentProps> = ({ data, onAction }
       {data.config?.pagination?.enabled && (
         <div className="mt-6 flex justify-between items-center text-sm text-secondary">
           <span className="font-medium">
-            Showing <span className="text-trust">{data.data.length}</span> of{' '}
-            <span className="text-trust">{data.config.pagination.total || data.data.length}</span> results
+            Showing <span className="text-info">{data.data.length}</span> of{' '}
+            <span className="text-info">{data.config.pagination.total || data.data.length}</span> results
           </span>
           <div className="flex space-x-2">
             <button className="btn-secondary text-sm">Previous</button>

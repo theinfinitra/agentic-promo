@@ -81,7 +81,7 @@ export const FormComponent: React.FC<FormComponentProps> = ({ data, onSubmit }) 
           <select
             value={value}
             onChange={(e) => handleInputChange(field, e.target.value)}
-            className={`form-field ${hasError ? 'border-red-500' : ''}`}
+            className={`form-field ${hasError ? 'border-error' : 'border-secondary'}`}
           >
             <option value="">Select {field.label}</option>
             {field.options?.map(option => (
@@ -96,7 +96,7 @@ export const FormComponent: React.FC<FormComponentProps> = ({ data, onSubmit }) 
             value={value}
             onChange={(e) => handleInputChange(field, e.target.value)}
             placeholder={field.placeholder}
-            className={`form-field ${hasError ? 'border-red-500' : ''}`}
+            className={`form-field ${hasError ? 'border-error' : 'border-secondary'}`}
             rows={3}
           />
         );
@@ -110,7 +110,7 @@ export const FormComponent: React.FC<FormComponentProps> = ({ data, onSubmit }) 
             placeholder={field.placeholder}
             min={field.min}
             max={field.max}
-            className={`form-field ${hasError ? 'border-red-500' : ''}`}
+            className={`form-field ${hasError ? 'border-error' : 'border-secondary'}`}
           />
         );
     }
@@ -118,20 +118,16 @@ export const FormComponent: React.FC<FormComponentProps> = ({ data, onSubmit }) 
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      {data.title && (
-        <h2 className="text-xl font-bold mb-4 text-gray-900">{data.title}</h2>
-      )}
-      
       <form onSubmit={handleSubmit} className="form-component">
         {data.fields.map((field) => (
           <div key={field.name}>
-            <label className="block text-sm font-semibold mb-2" style={{color: 'var(--text-primary)'}}>
+            <label className="block text-sm font-semibold mb-2" style={{color: 'var(--secondary)'}}>
               {field.label}
-              {field.required && <span className="text-urgency ml-1">*</span>}
+              {field.required && <span className="text-warning ml-1">*</span>}
             </label>
             {renderField(field)}
             {errors[field.name] && (
-              <p className="text-red-500 text-sm mt-2 font-medium">{errors[field.name]}</p>
+              <p className="text-error text-sm mt-2 font-medium">{errors[field.name]}</p>
             )}
           </div>
         ))}
