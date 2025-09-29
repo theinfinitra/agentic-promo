@@ -7,18 +7,11 @@ from strands.agent import Agent
 from config.data_sources import get_data_source_context
 
 # Import Strands tools directly (these are DecoratedFunctionTool objects)
-from tools.optimized_data_tool import get_data
+from tools.data_agent_tool import process_data_request
 from tools.promotion_tool import create_promotion  
 from tools.email_tool import send_email
 from tools.ui_agent_tool import generate_ui_component
-from tools.segmentation_tool import analyze_customer_segments, calculate_rfm_scores, get_segment_insights
 from streaming import create_streaming_callback, send_stream_message
-
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            return float(obj)
-        return super(DecimalEncoder, self).default(obj)
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -36,7 +29,7 @@ def create_streaming_agent(stream_context):
     data_context = get_data_source_context()
     
     system_prompt = f"""
-    Advanced promotion engine with hybrid data architecture and customer segmentation.
+    Advanced promotion engine with hybrid data architecture.
     
     {data_context}
     
@@ -94,8 +87,7 @@ def create_streaming_agent(stream_context):
     agent = Agent(
         model="us.amazon.nova-premier-v1:0",
         system_prompt=system_prompt,
-        tools=[get_data, create_promotion, send_email, generate_ui_component, 
-               analyze_customer_segments, calculate_rfm_scores, get_segment_insights],  # Enhanced with segmentation tools
+        tools=[process_data_request, generate_ui_component, send_email],  
         callback_handler=callback_handler       # Strands-native streaming
     )
     
@@ -264,7 +256,7 @@ def lambda_handler(event, context):
         }
         
         # Set stream context for tools
-        from tools.optimized_data_tool import set_stream_context
+        from tools.data_agent_tool import set_stream_context
         set_stream_context(stream_context)
         
         # Classify and parse input

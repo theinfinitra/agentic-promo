@@ -47,6 +47,12 @@ aws lambda update-function-code \
     --profile $PROFILE \
     --region $REGION
 
+# aws lambda update-function-code \
+#     --function-name agentic-promo-orchestrator \
+#     --zip-file fileb://agentic-promo-lambda.zip \
+#     --profile infinitra-noone \
+#     --region us-east-1
+
 # Get outputs
 echo "📤 Stack outputs:"
 aws cloudformation describe-stacks \

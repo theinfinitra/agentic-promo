@@ -353,6 +353,7 @@ Resources:
           AURORA_CLUSTER_ARN: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
           AURORA_DATABASE_NAME: analytics
           AURORA_USERNAME: !Ref DBUsername
+          AURORA_SECRET_ARN: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:agentic-promo/aurora/credentials-*'
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 900  # 15 minutes for long LLM operations
       MemorySize: 1024  # Increased for Strands Agents
