@@ -2,8 +2,15 @@ import json
 from strands.agent import Agent
 from strands.tools import tool
 
+_global_callback = None
+
+def set_global_callback(callback):
+    """Set global callback handler for UI agent"""
+    global _global_callback
+    _global_callback = callback
+
 @tool
-def generate_ui_component(data_type: str, raw_data: str, user_intent: str, output_format: str = "json") -> str:
+def generate_ui_component(data_type: str, raw_data: str, user_intent: str, output_format: str = "html", callback_handler=None) -> str:
     """
     Generate UI component configuration using specialized UI agent
     
@@ -11,52 +18,79 @@ def generate_ui_component(data_type: str, raw_data: str, user_intent: str, outpu
         data_type: Type of data (customers, promotions, orders, notification)
         raw_data: JSON string of the actual data
         user_intent: What user wants to do (list, create, edit, confirm)
-        output_format: "json" for config or "html" for ready-to-use HTML
+        output_format: "html" for ready-to-use HTML
         
     Returns:
-        JSON string with UI component configuration or HTML string
+        HTML string
     """
     try:
-        # Create specialized UI agent
+        # Create specialized UI agent with callback
         ui_agent = Agent(
             model="us.amazon.nova-premier-v1:0",
-            system_prompt=f"""
-            You are a UI/UX specialist that generates component configurations.
-            
+            system_prompt = f"""
+            You are a specialized UI/UX Agent - the visualization expert of the system.
+
+            YOUR EXPERTISE:
+            - Data visualization and presentation
+            - HTML/CSS component generation
+            - User interface design
+            - Interactive element creation
+
+            YOUR RESPONSIBILITIES:
+            1. Analyze data structure and user intent
+            2. Select optimal component type (table, form, notification, card)
+            3. Generate clean, responsive HTML with Tailwind CSS
+            4. Create interactive and accessible interfaces
+
+            COMPONENT SELECTION LOGIC:
+            - Lists/Arrays of data → Table component
+            - Single record creation/editing → Form component
+            - Success/Error messages → Notification component
+            - Summary/Overview data → Card component
+
+            HTML GENERATION STANDARDS:
+            - Use semantic HTML5 elements
+            - Apply Tailwind CSS classes for styling
+            - Ensure responsive design (mobile-first)
+            - Include accessibility attributes (ARIA)
+            - Add interactive elements where appropriate
+
             OUTPUT FORMAT: {output_format.upper()}
-            
-            EXPERTISE:
-            - Table design: columns, sorting, actions, pagination
-            - Form design: fields, validation, layout
-            - Component selection: table vs form vs notification vs chart
-            - User interactions: buttons, clicks, actions
-            - HTML generation: Clean, semantic HTML with Tailwind CSS classes
-            
-            COMPONENT TYPES:
-            - "table": For displaying lists of data
-            - "form": For creating/editing data  
-            - "notification": For confirmations and alerts
-            - "card": For summaries and overviews
-            
-            {"JSON FORMAT:" if output_format == "json" else "HTML FORMAT:"}
+
+            {"HTML TEMPLATE STRUCTURE:" if output_format == "html" else "JSON CONFIGURATION:"}
             {'''
-            Return valid JSON:
+            <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+            <tr><th class="px-6 py-3 text-left text-sm font-medium text-gray-900">Column</th></tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+            <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Data</td></tr>
+            </tbody>
+            </table>
+            </div>
+            ''' if output_format == "html" else '''
             {
-              "type": "table|form|notification|card",
-              "title": "Component title",
-              "data": [...] or null,
-              "config": {...component-specific configuration...}
+            "type": "table|form|notification|card",
+            "title": "Component title",
+            "data": [...] or null,
+            "config": {...component-specific configuration...}
             }
-            ''' if output_format == "json" else '''
-            Return clean HTML with Tailwind CSS classes:
-            - Use semantic HTML elements
-            - Add Tailwind classes for styling
-            - Include interactive elements (buttons, forms)
-            - Make it responsive and accessible
             '''}
-            
-            Be concise and focus on optimal user experience.
-            """
+
+            NEVER:
+            - Query databases or retrieve data
+            - Make business decisions
+            - Send emails or notifications
+            - Generate raw data or analytics
+
+            ALWAYS:
+            - Focus on optimal user experience
+            - Provide detailed progress updates
+            - Create accessible and responsive designs
+            - Select appropriate component types for data
+            """,
+            callback_handler=_global_callback
         )
         
         # Generate UI configuration or HTML
@@ -71,7 +105,11 @@ def generate_ui_component(data_type: str, raw_data: str, user_intent: str, outpu
         {"Create the best UI component configuration for this scenario." if output_format == "json" else "Generate clean, responsive HTML with Tailwind CSS for this scenario."}
         """
         
-        response = ui_agent(prompt)
+        response = ui_agent(
+            prompt,
+            stream=True
+        )
+        
         return str(response)
         
     except Exception as e:

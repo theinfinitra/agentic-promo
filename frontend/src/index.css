@@ -1,9 +1,114 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@900&display=swap');
 
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Terminal Overlay Styles */
+.terminal-overlay {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  max-width: 600px;
+  max-height: 500px;
+  margin: 0 auto;
+  font-family: 'JetBrains Mono', monospace;
+  color: #00ff00;
+  overflow: hidden;
+}
+
+.terminal-header {
+  background: #2a2a2a;
+  padding: 8px 16px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #888;
+}
+
+.terminal-title {
+  font-weight: 500;
+}
+
+.terminal-time {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.terminal-content {
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: #1a1a1a;
+}
+
+.terminal-step {
+  margin-bottom: 16px;
+}
+
+.terminal-step-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #00ff00;
+  font-weight: 500;
+}
+
+.terminal-icon {
+  font-size: 16px;
+}
+
+.terminal-step-title {
+  font-size: 14px;
+}
+
+.terminal-cursor {
+  animation: blink 1s infinite;
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.terminal-thinking {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #888;
+  white-space: pre-wrap;
+  margin-left: 24px;
+  border-left: 2px solid #333;
+  padding-left: 12px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Custom scrollbar for terminal */
+.terminal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-content::-webkit-scrollbar-track {
+  background: #2a2a2a;
+}
+
+.terminal-content::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.terminal-content::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
 
 /* Apply Inter font globally */
 * {

@@ -1,6 +1,7 @@
 import json
 import boto3
 import os
+from datetime import datetime
 from decimal import Decimal
 from functools import lru_cache
 from strands.agent import Agent
@@ -11,7 +12,10 @@ from tools.data_agent_tool import process_data_request
 from tools.promotion_tool import create_promotion  
 from tools.email_tool import send_email
 from tools.ui_agent_tool import generate_ui_component
-from streaming import create_streaming_callback, send_stream_message
+from streaming import send_stream_message
+from utils.progress_manager import ProgressManager
+from tools.data_agent_tool import set_global_callback as set_data_callback
+from tools.ui_agent_tool import set_global_callback as set_ui_callback
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -19,77 +23,106 @@ class DecimalEncoder(json.JSONEncoder):
             return float(obj)
         return super(DecimalEncoder, self).default(obj)
 
-def create_streaming_agent(stream_context):
-    """Create agent with Strands-native streaming"""
+def create_streaming_agent(stream_context, user_input="", callback_handler=None):
+    """Create agent with Strands-native streaming and progress management"""
     
-    # Create streaming callback handler
-    callback_handler = create_streaming_callback(stream_context)
+    # Initialize progress manager
+    progress_manager = ProgressManager(stream_context)
+    
+    # Create enhanced streaming callback that filters thinking content
+    def enhanced_callback(chunk=None, **kwargs):
+        """Enhanced callback that accepts all Strands parameters"""
+        if not chunk:
+            return
+            
+        if chunk.get('type') == 'text_chunk':
+            content = chunk.get('content', '')
+            # Filter thinking content and send progress updates
+            filtered_content = progress_manager.filter_thinking_content(content, user_input)
+            
+            # Only send non-empty filtered content
+            if filtered_content:
+                send_stream_message(stream_context, {
+                    "type": "text_chunk",
+                    "content": filtered_content,
+                    "timestamp": datetime.now().isoformat()
+                })
+        elif chunk.get('type') == 'tool_call':
+            # Send phase update when tools are called
+            tool_name = chunk.get('tool_name', '')
+            progress_manager.detect_tool_phase(tool_name, user_input)
+            # Don't send the raw tool_call message to frontend
+        else:
+            # Pass through other message types unchanged
+            send_stream_message(stream_context, chunk)
+    
     
     # Generate dynamic system prompt
     data_context = get_data_source_context()
     
     system_prompt = f"""
-    Advanced promotion engine with hybrid data architecture.
-    
-    {data_context}
-    
-    AVAILABLE TOOLS:
-    - get_data: Hybrid data retrieval (DynamoDB operational + Aurora analytical)
-    - analyze_customer_segments: Advanced segmentation analysis with RFM, behavioral insights
-    - calculate_rfm_scores: RFM (Recency, Frequency, Monetary) scoring for customers
-    - get_segment_insights: Actionable insights and recommendations for specific segments
-    - create_promotion: Create targeted promotions with business logic
-    - send_email: Send personalized emails via AWS SES
-    - generate_ui_component: Generate UI component configurations (JSON) for frontend integration
-    
-    RESPONSE FORMATTING RULES:
-    - NEVER return raw JSON to users
-    - For "show/list/display" queries: Create HTML tables with proper styling
-    - Use markdown for simple text responses
-    - Make responses visually appealing and human-friendly
-    
-    HTML TABLE FORMAT FOR DATA DISPLAY:
-    ```html
-    <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
-    <thead class="bg-gray-50">
-    <tr><th class="px-6 py-3 text-left text-sm font-medium text-gray-900">Column</th></tr>
-    </thead>
-    <tbody class="bg-white divide-y divide-gray-200">
-    <tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Data</td></tr>
-    </tbody>
-    </table>
-    </div>
-    ```
-    
-    DATA MODIFICATION WORKFLOW (CRITICAL):
-    - NEVER execute create/update/delete operations immediately
-    - Always present a detailed plan first
-    - Required details: amount, dates, target audience, conditions
-    - Ask "Shall I proceed? Please confirm (yes/no)"
-    - Only execute after explicit user confirmation
-    
-    INTENT DETECTION:
-    - "show/list/display/view" → Get data + Format as HTML table
-    - "create/update/delete/modify" → Plan + confirmation workflow
-    - "analyze/insights/segments" → Analysis + HTML formatting
-    - Use generate_ui_component only for interactive frontend components
-    
-    CONFIRMATION PATTERN FOR DATA CHANGES:
-    1. "I understand you want to [action]"
-    2. "Here's what I'll create/update:"
-    3. "Details: [specific parameters needed]"
-    4. "Shall I proceed? Please confirm."
-    
-    Always provide actionable insights with properly formatted, visually appealing responses.
-    """
+        You are an intelligent orchestrator that delegates specialized tasks to expert agents and tools.
+
+        {data_context}
+
+        CORE PRINCIPLE: You are a COORDINATOR, not a direct executor. Always delegate to specialized tools.
+
+        AVAILABLE TOOLS:
+        - process_data_request: For ALL data retrieval and analysis tasks
+        - generate_ui_component: For ALL data visualization and UI generation
+        - create_promotion: For creating promotions with business logic
+        - send_email: For sending personalized emails via AWS SES
+
+        DELEGATION RULES (CRITICAL):
+        - Data requests → ALWAYS use process_data_request tool
+        - Data visualization → ALWAYS use generate_ui_component tool
+        - Promotion creation → ALWAYS use create_promotion tool
+        - Email sending → ALWAYS use send_email tool
+
+        INTENT DETECTION & DELEGATION:
+        - "show/list/display/view" → process_data_request + generate_ui_component
+        - "create/update/delete/modify" → Plan + confirmation workflow + appropriate tool
+        - "analyze/insights/segments" → process_data_request + generate_ui_component
+        - "send email" → send_email tool
+
+        WORKFLOW PATTERN:
+        1. Understand user intent
+        2. Delegate to appropriate specialized tool(s)
+        3. Coordinate results from multiple tools if needed
+        4. Present final coordinated response
+
+        NEVER:
+        - Generate HTML tables directly
+        - Execute database queries yourself
+        - Create UI components inline
+        - Return raw JSON to users
+
+        ALWAYS:
+        - Delegate data tasks to process_data_request
+        - Delegate UI tasks to generate_ui_component
+        - Coordinate between tools for complex requests
+        - Provide context and insights around tool results
+
+        FINAL RESPONSE:
+        - Fomat the response in a structured manner:
+            - Your understanding and reasoning for the request
+            - html content
+            - Key insights and recommendations
+
+        You are the conductor of an orchestra - coordinate the specialists, don't play their instruments.
+        """
     
     agent = Agent(
         model="us.amazon.nova-premier-v1:0",
         system_prompt=system_prompt,
-        tools=[process_data_request, generate_ui_component, send_email],  
-        callback_handler=callback_handler       # Strands-native streaming
+        tools=[process_data_request, generate_ui_component, send_email],
+        callback_handler=callback_handler
     )
+
+    
+    
+    set_data_callback(callback_handler)
+    set_ui_callback(callback_handler)
     
     return agent
 
@@ -255,9 +288,9 @@ def lambda_handler(event, context):
             'stage': stage
         }
         
-        # Set stream context for tools
-        from tools.data_agent_tool import set_stream_context
-        set_stream_context(stream_context)
+        # Create streaming callback
+        from streaming import create_streaming_callback
+        callback_handler = create_streaming_callback(stream_context)
         
         # Classify and parse input
         parsed_request = classify_and_parse_input(user_input)
@@ -311,8 +344,8 @@ def lambda_handler(event, context):
             if not agent_input or not agent_input.strip():
                 agent_input = "Hello, I need help with data analysis."
             
-            # Create streaming agent
-            agent = create_streaming_agent(stream_context)
+            # Create streaming agent with callback
+            agent = create_streaming_agent(stream_context, agent_input, callback_handler)
             
             print(f"🚀 Executing agent with streaming enabled...")
             
@@ -321,6 +354,15 @@ def lambda_handler(event, context):
             response_text = str(response)
             
             print(f"✅ Agent execution complete. Response length: {len(response_text)}")
+            
+            # Send final formatting phase
+            send_stream_message(stream_context, {
+                "type": "phase_update",
+                "phase": "formatting",
+                "message": "✨ Generating final response",
+                "details": ["Creating data visualization", "Formatting insights"],
+                "timestamp": datetime.now().isoformat()
+            })
             
             # Fast structured data extraction
             structured_data = extract_structured_data_fast(response_text)

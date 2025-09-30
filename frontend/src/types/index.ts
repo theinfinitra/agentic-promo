@@ -1,6 +1,6 @@
 // Agent Response Types
 export interface AgentResponse {
-  type: 'acknowledgment' | 'response' | 'error' | 'thinking' | 'stream_start' | 'stream_chunk' | 'stream_end' | 'data_update' | 'text_chunk' | 'tool_progress' | 'message_complete';
+  type: 'acknowledgment' | 'response' | 'error' | 'thinking' | 'stream_start' | 'stream_chunk' | 'stream_end' | 'data_update' | 'text_chunk' | 'tool_progress' | 'message_complete' | 'phase_update' | 'progress';
   chat_response?: string;
   structured_data?: StructuredData;
   message?: string;
@@ -18,6 +18,21 @@ export interface AgentResponse {
   tool?: string;
   status?: string;
   timestamp?: string;
+  
+  // Enhanced progress fields
+  phase?: string;
+  details?: string[];
+  progress?: number;
+  estimated_time?: number;
+}
+
+// Progress Phase Types
+export interface ProgressPhase {
+  phase: 'analyzing' | 'planning' | 'executing' | 'consolidating' | 'formatting';
+  message: string;
+  details: string[];
+  progress?: number;
+  estimated_time?: number;
 }
 
 // UI Component Types

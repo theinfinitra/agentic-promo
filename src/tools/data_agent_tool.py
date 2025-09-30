@@ -7,21 +7,13 @@ from strands.tools import tool
 from strands.agent import Agent
 from config.data_sources import get_data_agent_metadata, get_data_source_context, route_query
 
-# Global streaming context (set by orchestrator)
 _stream_context = None
+_global_callback = None
 
-def _send_progress(message):
-    """Send progress update via streaming"""
-    if _stream_context:
-        try:
-            from streaming import send_stream_message
-            send_stream_message(_stream_context, {
-                "type": "progress", 
-                "content": message,
-                "timestamp": __import__('datetime').datetime.now().isoformat()
-            })
-        except Exception as e:
-            print(f"WARNING: Failed to send progress update: {e}")
+def set_global_callback(callback):
+    """Set global callback handler for data agent"""
+    global _global_callback
+    _global_callback = callback
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -43,29 +35,62 @@ def get_rds_data_client():
 
 # Data Agent - Intelligent multi-database orchestrator
 class DataAgent:
-    def __init__(self):
+    def __init__(self, callback_handler=None):
         self.metadata = get_data_agent_metadata()
         self.agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             system_prompt=self._get_system_prompt(),
-            tools=[execute_dynamodb_query, execute_aurora_query]
+            tools=[execute_dynamodb_query, execute_aurora_query],
+            callback_handler=callback_handler
         )
     
     def _get_system_prompt(self):
         context = get_data_source_context()
-        return f"""You are a Data Agent responsible for intelligent data orchestration across DynamoDB and Aurora databases.
+        return f"""You are a specialized Data Agent - the database expert of the system.
 
-{context}
+        {context}
 
-Your responsibilities:
-1. Analyze user requests to understand data requirements
-2. Plan multi-database query execution strategy
-3. Execute queries sequentially across data sources
-4. Consolidate results with business insights
-5. Handle partial failures gracefully
+        YOUR EXPERTISE:
+        - Multi-database query orchestration (DynamoDB + Aurora)
+        - Data consolidation and analysis
+        - Performance optimization
+        - Error handling and recovery
 
-Always stream progress updates and call out any errors or limitations in your response.
-"""
+        YOUR RESPONSIBILITIES:
+        1. Analyze data requirements from user requests
+        2. Plan optimal query execution strategy
+        3. Execute queries across multiple data sources
+        4. Consolidate and analyze results
+        5. Provide structured data output with insights
+
+        AVAILABLE TOOLS:
+        - execute_dynamodb_query: For operational data queries
+        - execute_aurora_query: For analytical data queries
+
+        QUERY STRATEGY:
+        - Use DynamoDB for real-time operational data (customers, promotions, orders)
+        - Use Aurora for analytical queries (RFM analysis, segmentation, insights)
+        - Combine results when cross-database analysis is needed
+
+        OUTPUT FORMAT:
+        Always return structured JSON with:
+        - success: boolean
+        - data: array of results
+        - insights: business intelligence summary
+        - source: data source information
+        - count: number of records
+
+        NEVER:
+        - Generate UI components or HTML
+        - Make business decisions
+        - Send emails or notifications
+
+        ALWAYS:
+        - Provide detailed progress updates
+        - Handle partial failures gracefully
+        - Include business insights with raw data
+        - Optimize queries for performance
+        """
 
     def process_request(self, user_request: str, stream_context=None) -> dict:
         """Main entry point for data agent processing"""
@@ -73,12 +98,10 @@ Always stream progress updates and call out any errors or limitations in your re
         _stream_context = stream_context
         
         try:
-            _send_progress("🤖 Data Agent analyzing request")
-            
-            # Use Claude Sonnet 4 for intelligent analysis and execution
+            # Real LLM streaming from data agent - use agent's built-in streaming
             response = self.agent(
                 f"Analyze this data request and execute the necessary queries: {user_request}",
-                stream=True if stream_context else False
+                stream=True
             )
             
             return {
@@ -89,7 +112,6 @@ Always stream progress updates and call out any errors or limitations in your re
             
         except Exception as e:
             error_msg = f"Data Agent processing failed: {str(e)}"
-            _send_progress(f"❌ {error_msg}")
             return {
                 "success": False,
                 "error": error_msg,
@@ -101,23 +123,25 @@ Always stream progress updates and call out any errors or limitations in your re
 
 # Global data agent instance
 _data_agent = None
+_current_callback = None
 
-def get_data_agent():
+def get_data_agent(callback_handler=None):
     """Get or create data agent instance"""
-    global _data_agent
-    if _data_agent is None:
-        _data_agent = DataAgent()
+    global _data_agent, _current_callback
+    if _data_agent is None or _current_callback != callback_handler:
+        _data_agent = DataAgent(callback_handler)
+        _current_callback = callback_handler
     return _data_agent
 
 @tool
 def execute_dynamodb_query(table_name: str, filters: dict = None, operation: str = "scan") -> str:
         """Execute DynamoDB query with intelligent routing"""
         try:
-            _send_progress(f"📊 Executing DynamoDB {operation} on {table_name}")
-            
+            # Connection phase
             dynamodb = get_dynamodb_resource()
             table = dynamodb.Table(table_name)
             
+            # Query execution with specific details
             if operation == "scan":
                 response = table.scan(Limit=50)
             elif operation == "query" and filters:
@@ -146,7 +170,6 @@ def execute_dynamodb_query(table_name: str, filters: dict = None, operation: str
                 response = table.scan(Limit=50)
             
             result_count = len(response['Items'])
-            _send_progress(f"✅ Retrieved {result_count} records from DynamoDB")
             
             return json.dumps({
                 "success": True,
@@ -158,7 +181,6 @@ def execute_dynamodb_query(table_name: str, filters: dict = None, operation: str
             
         except Exception as e:
             error_msg = f"DynamoDB query failed: {str(e)}"
-            _send_progress(f"❌ DynamoDB error: {str(e)}")
             return json.dumps({"success": False, "error": error_msg, "source": "dynamodb"})
 
 
@@ -166,19 +188,23 @@ def execute_dynamodb_query(table_name: str, filters: dict = None, operation: str
 def execute_aurora_query(sql: str, description: str = "") -> str:
         """Execute Aurora SQL query with error handling"""
         try:
-            _send_progress(f"🗄️ Executing Aurora query: {description}")
+            # Connection phase
             metadata = get_data_agent_metadata()
             rds_data = get_rds_data_client()
             cluster_arn = metadata["connection_info"]["aurora"]["cluster_arn"]
             secret_arn = metadata["connection_info"]["aurora"]["secret_arn"]
             database = metadata["connection_info"]["aurora"]["database"]
             
+            # Query execution phase
             response = rds_data.execute_statement(
                 resourceArn=cluster_arn,
                 secretArn=secret_arn,
                 database=database,
                 sql=sql
             )
+            
+            # Processing phase
+            record_count = len(response.get('records', []))
             
             # Convert RDS Data API response to readable format
             records = []
@@ -194,7 +220,6 @@ def execute_aurora_query(sql: str, description: str = "") -> str:
                 records.append(row)
             
             result_count = len(records)
-            _send_progress(f"✅ Retrieved {result_count} records from Aurora")
             
             return json.dumps({
                 "success": True,
@@ -206,11 +231,10 @@ def execute_aurora_query(sql: str, description: str = "") -> str:
             
         except Exception as e:
             error_msg = f"Aurora query failed: {str(e)}"
-            _send_progress(f"❌ Aurora error: {str(e)}")
             return json.dumps({"success": False, "error": error_msg, "source": "aurora"})
 
 @tool
-def process_data_request(user_request: str) -> str:
+def process_data_request(user_request: str, callback_handler=None) -> str:
     """
     Data Agent Tool - Intelligent multi-database data orchestration
     
@@ -221,16 +245,16 @@ def process_data_request(user_request: str) -> str:
         JSON response with consolidated data and analysis
     """
     try:
-        _send_progress("🤖 Data Agent initializing")
+        # Phase 1: Initialize and analyze request
+        request_lower = user_request.lower()
         
-        data_agent = get_data_agent()
+        data_agent = get_data_agent(callback_handler=_global_callback)
         result = data_agent.process_request(user_request, _stream_context)
         
         return json.dumps(str(result), cls=DecimalEncoder)
         
     except Exception as e:
         error_msg = f"Data Agent Tool failed: {str(e)}"
-        _send_progress(f"❌ {error_msg}")
         return json.dumps({
             "success": False,
             "error": error_msg,

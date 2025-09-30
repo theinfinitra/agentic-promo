@@ -2,60 +2,66 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { TableComponent } from './components/TableComponent';
 import { FormComponent } from './components/FormComponent';
-import { ChatMessage, StructuredData } from './types';
+import { ChatMessage, StructuredData, ProgressPhase } from './types';
 import { marked } from 'marked';
 import './index.css';
+
+const extractPureHTML = (content: string): string => {
+  if (!content) return content;
+  
+  // First try to extract from HTML code blocks
+  const htmlMatch = content.match(/```html\s*([\s\S]*?)\s*```/i);
+  if (htmlMatch) {
+    return htmlMatch[1].trim();
+  }
+  
+  // If no code blocks, return the content as-is (it's already HTML)
+  return content.trim();
+};
+
+const extractInsightsOnly = (content: string): string => {
+  if (!content) return '';
+  
+  let insights = content.replace(/```html[\s\S]*?```/gi, '');
+  insights = insights.replace(/<(div|table|form|section|article)[^>]*>[\s\S]*?<\/\1>/gi, '');
+  insights = insights.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
+  
+  insights = insights.replace(/\n\s*\n/g, '\n').trim();
+  
+  return insights || content;
+};
 
 const formatRawResponse = (rawResponse: string): string => {
   if (!rawResponse) return '';
   
-  // Remove thinking blocks and HTML code blocks only
   let formatted = rawResponse.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
   formatted = formatted.replace(/```html[\s\S]*?```/g, '');
   
   return formatted.trim();
 };
 
-const formatChatMessage = (content: string): string => {
-  // Only remove thinking blocks and HTML code blocks if they exist
-  let formatted = content;
+const cleanChatResponse = (content: string): string => {
+  if (!content) return '';
   
-  if (formatted.includes('<thinking')) {
-    formatted = formatted.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
-  }
+  // Remove thinking blocks
+  let cleaned = content.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
   
-  if (formatted.includes('```html')) {
-    formatted = formatted.replace(/```html[\s\S]*?```/g, '');
-  }
+  // Remove HTML code blocks
+  cleaned = cleaned.replace(/```html[\s\S]*?```/gi, '');
   
-  if (formatted.includes('<markdown>')) {
-    formatted = formatted.replace(/<markdown>/gi, '').replace(/<\/markdown>/gi, '');
-  }
+  // Clean up extra whitespace but preserve markdown structure
+  cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
   
-  return formatted.trim();
+  return cleaned;
 };
 
-const formatDataContent = (content: string): string => {
-  // Remove thinking blocks
-  let formatted = content.replace(/<thinking>([\s\S]*?)<\/thinking>/gi, '');
-  formatted = formatted.replace(/<div class="thinking-block">[\s\S]*?<\/div>/gi, '');
-  formatted = formatted.replace(/<thinking[^>]*>/gi, '');
-  formatted = formatted.replace(/^<thinking\s*$/gm, '');
+const formatChatMessage = (content: string): string => {
+  if (!content) return '';
   
-  // Clean whitespace
-  formatted = formatted.replace(/\n\s*\n\s*\n/g, '\n\n');
-  formatted = formatted.trim();
+  let formatted = content.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
+  formatted = formatted.replace(/```html[\s\S]*?```/gi, '');
   
-  // Parse markdown if no HTML
-  if (!formatted.includes('<div') && !formatted.includes('<table')) {
-    try {
-      formatted = marked.parse(formatted) as string;
-    } catch (error) {
-      console.warn('Markdown parsing failed:', error);
-    }
-  }
-  
-  return formatted;
+  return formatted.trim();
 };
 
 function App() {
@@ -64,6 +70,18 @@ function App() {
   const [currentData, setCurrentData] = useState<StructuredData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [thinkingStep, setThinkingStep] = useState('');
+  const [currentPhase, setCurrentPhase] = useState<ProgressPhase | null>(null);
+  const [progressDetails, setProgressDetails] = useState<string[]>([]);
+  const [currentAgent, setCurrentAgent] = useState('');
+  
+  const [stepThinking, setStepThinking] = useState({
+    analysis: [] as string[],
+    data: [] as string[],
+    ui: [] as string[]
+  });
+  const [currentStep, setCurrentStep] = useState<'analysis' | 'data' | 'ui'>('analysis');
+  const [activeSteps, setActiveSteps] = useState<('analysis' | 'data' | 'ui')[]>(['analysis']);
+  const [processingStartTime, setProcessingStartTime] = useState<Date | null>(null);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -85,10 +103,29 @@ function App() {
     }
   };
 
-  const extractReasoningFromContent = (content: string) => {
-    // Since we now filter thinking blocks in formatMessageContent,
-    // just return the content as-is (no reasoning to extract)
-    return { reasoning: '', cleanContent: content };
+  const getCurrentStepStatus = () => {
+    // Use the actual tool from lastMessage instead of currentStep state
+    const tool = lastMessage?.tool || '';
+    if (tool.includes('generate_ui_component')) return "🎨 Generating visualization...";
+    if (tool.includes('process_data_request')) return "🔧 Retrieving data...";
+    if (currentStep === 'data') return "🔧 Retrieving data...";
+    if (currentStep === 'ui') return "🎨 Generating visualization...";
+    return "🧠 Analyzing request...";
+  };
+
+  const getStepStatus = (step: 'analysis' | 'data' | 'ui') => {
+    if (step === currentStep) return 'active';
+    if ((step === 'analysis' && currentStep !== 'analysis') || 
+        (step === 'data' && currentStep === 'ui')) return 'completed';
+    return 'pending';
+  };
+
+  const getElapsedTime = () => {
+    if (!processingStartTime) return '00:00';
+    const elapsed = Math.floor((Date.now() - processingStartTime.getTime()) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const toggleRawResponse = (messageId: string) => {
@@ -107,107 +144,98 @@ function App() {
     if (lastMessage) {
       if (lastMessage.type === 'acknowledgment') {
         setIsProcessing(true);
+        setProcessingStartTime(new Date());
+        setCurrentStep('analysis');
+        setActiveSteps(['analysis']);
+        setStepThinking({ analysis: [], data: [], ui: [] });
         setThinkingStep('');
+        setCurrentPhase(null);
+        setProgressDetails([]);
+        setCurrentAgent('');
       } else if (lastMessage.type === 'tool_progress') {
-        // Map tool_progress to thinking steps
-        const tool = lastMessage.tool || 'system';
-        const status = lastMessage.status || 'working';
-        setThinkingStep(`${tool}: ${status}...`);
+        const tool = lastMessage.tool || '';
+        if (tool.includes('process_data_request')) {
+          setCurrentStep('data');
+          setActiveSteps(prev => prev.includes('data') ? prev : [...prev, 'data']);
+        } else if (tool.includes('generate_ui_component')) {
+          setCurrentStep('ui');
+          setActiveSteps(prev => prev.includes('ui') ? prev : [...prev, 'ui']);
+        }
+        setThinkingStep(`${tool}: executing...`);
       } else if (lastMessage.type === 'text_chunk') {
-        // Handle streaming text chunks - filter thinking content
-        const chunkContent = lastMessage.content || '';
+        const content = lastMessage.content || '';
         
-        if (!streamingMessageId) {
-          // Start new streaming message
-          const messageId = Date.now().toString();
-          setStreamingMessageId(messageId);
-          setIsProcessing(false);
-          setThinkingStep('');
-          
-          const streamingMessage: ChatMessage = {
-            id: messageId,
-            type: 'agent',
-            content: chunkContent,
-            timestamp: new Date(),
-            is_streaming: true,
-            is_complete: false
-          };
-          
-          setMessages(prev => [...prev, streamingMessage]);
-        } else {
-          // Append to existing streaming message
-          setMessages(prev => prev.map(msg => 
-            msg.id === streamingMessageId 
-              ? { ...msg, content: msg.content + chunkContent }
-              : msg
-          ));
-        }
-      } else if (lastMessage.type === 'message_complete') {
-        // Mark streaming as complete but keep message
-        if (streamingMessageId) {
-          setMessages(prev => prev.map(msg => 
-            msg.id === streamingMessageId 
-              ? { ...msg, is_streaming: false }
-              : msg
-          ));
-        }
-      } else if (lastMessage.type === 'response') {
-        // Final response with structured data
-        setIsProcessing(false);
-        setThinkingStep('');
-        
-        if (streamingMessageId) {
-          // Update existing streaming message with final data
-          setMessages(prev => prev.map(msg => {
-            if (msg.id === streamingMessageId) {
-              // Apply formatting only to final complete message
-              const cleanContent = formatChatMessage(msg.content);
-              const { reasoning, cleanContent: finalContent } = extractReasoningFromContent(cleanContent);
-              
-              return {
-                ...msg, 
-                is_streaming: false, 
-                is_complete: true,
-                content: finalContent || cleanContent,
-                structured_data: lastMessage.structured_data,
-                raw_response: reasoning ? `${reasoning}\n\n${lastMessage.chat_response || ''}` : (
-                  lastMessage.structured_data?.type === 'html' 
-                    ? lastMessage.chat_response 
-                    : undefined
-                )
-              };
-            }
-            return msg;
+        if (content.trim() && !content.includes('<thinking>') && !content.includes('</thinking>')) {
+          setStepThinking(prev => ({
+            ...prev,
+            [currentStep]: [...prev[currentStep], content]
           }));
-          setStreamingMessageId(null);
         }
         
-        // Update data panel
-        if (lastMessage.structured_data) {
-          setCurrentData(lastMessage.structured_data);
-        }
-      } else if (lastMessage.type === 'error') {
+        // Don't create streaming messages for thinking content
+      } else if (lastMessage.type === 'response') {
         setIsProcessing(false);
+        setProcessingStartTime(null);
         setThinkingStep('');
-        setStreamingMessageId(null);
+        setCurrentPhase(null);
+        setCurrentAgent('');
         
-        const errorMessage: ChatMessage = {
+        // Add final message to chat
+        const finalMessage: ChatMessage = {
           id: Date.now().toString(),
           type: 'agent',
-          content: `Error: ${lastMessage.message}`,
-          timestamp: new Date(),
-          is_complete: true
+          content: cleanChatResponse(lastMessage.chat_response || ''),
+          raw_response: lastMessage.chat_response || '',
+          timestamp: new Date()
         };
         
-        setMessages(prev => [...prev, errorMessage]);
+        setMessages(prev => [...prev, finalMessage]);
+        
+        if (lastMessage.structured_data?.content) {
+          setCurrentData({
+            type: 'html',
+            content: lastMessage.structured_data.content
+          });
+        }
       }
     }
-  }, [lastMessage, streamingMessageId]);
+  }, [lastMessage, streamingMessageId, currentStep]);
+
+  const renderProgressOverlay = () => {
+    const stepConfig = {
+      analysis: { icon: '🧠', title: 'Request Analysis' },
+      data: { icon: '🔧', title: 'Data Analysis' },
+      ui: { icon: '🎨', title: 'Generating Visualization' }
+    };
+
+    return (
+      <div className="terminal-overlay">
+        <div className="terminal-header">
+          <div className="terminal-title">AI Processing Terminal</div>
+          <div className="terminal-time">{getElapsedTime()}</div>
+        </div>
+        
+        <div className="terminal-content">
+          {activeSteps.map(step => (
+            <div key={step} className="terminal-step">
+              <div className="terminal-step-header">
+                <span className="terminal-icon">{stepConfig[step].icon}</span>
+                <span className="terminal-step-title">{stepConfig[step].title}</span>
+                {step === currentStep && <span className="terminal-cursor">_</span>}
+              </div>
+              <div className="terminal-thinking">
+                {stepThinking[step].join('')}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const handleSendMessage = () => {
     if (!inputValue.trim() || !isConnected) return;
     
-    // Add user message to chat
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
@@ -217,7 +245,6 @@ function App() {
     
     setMessages(prev => [...prev, userMessage]);
     
-    // Send to agent
     sendMessage({
       input: inputValue,
       intent: 'general'
@@ -241,7 +268,6 @@ function App() {
   const handleFormSubmit = (formData: Record<string, any>) => {
     const submitMessage = `Submit form: ${JSON.stringify(formData)}`;
     
-    // Add user message
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
@@ -251,7 +277,6 @@ function App() {
     
     setMessages(prev => [...prev, userMessage]);
     
-    // Send to agent
     sendMessage({
       input: submitMessage,
       intent: 'create'
@@ -275,62 +300,6 @@ function App() {
     if (!quickStartsMinimized) {
       setQuickStartsMinimized(true);
       handleSendMessage();
-    }
-    // If already minimized, just set the input value without sending
-  };
-
-  const ProcessingAnimation = () => (
-    <div className="text-center">
-      <svg className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-      <p className="font-medium text-trust">AI Agents Working...</p>
-      {thinkingStep && (
-        <p className="text-sm mt-1 text-secondary">
-          <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-          </svg>
-          {thinkingStep}
-        </p>
-      )}
-      {!thinkingStep && (
-        <p className="text-sm mt-1 text-secondary">Processing your request</p>
-      )}
-    </div>
-  );
-
-  const getDataPanelTitle = () => {
-    if (isProcessing) return "Processing Request";
-    if (!currentData) return "Data Panel";
-    
-    switch (currentData.type) {
-      case 'table':
-        return currentData.title || "Data Table";
-      case 'form':
-        return currentData.title || "Form";
-      case 'html':
-        const content = currentData.content?.toLowerCase() || '';
-        
-        // Check for specific content types with better priority
-        if (content.includes('customer') && content.includes('table')) return "Customer Data";
-        if (content.includes('promotion') && content.includes('table')) return "Active Promotions";
-        if (content.includes('order') && content.includes('table')) return "Order History";
-        
-        // Form checks
-        if (content.includes('form') && content.includes('promotion')) return "Create Promotion";
-        if (content.includes('edit') && content.includes('promotion')) return "Edit Promotion";
-        
-        // Generic fallbacks
-        if (content.includes('customer')) return "Customer Data";
-        if (content.includes('promotion')) return "Promotions";
-        if (content.includes('order')) return "Orders";
-        if (content.includes('form')) return "Form";
-        if (content.includes('table')) return "Data Table";
-        
-        return "Interactive Component";
-      default:
-        return "Data View";
     }
   };
 
@@ -356,9 +325,8 @@ function App() {
     if (currentData.type === 'html' && currentData.content) {
       return (
         <div className="data-panel">
-          {/* HTML Content */}
           <div 
-            dangerouslySetInnerHTML={{ __html: formatDataContent(currentData.content) }}
+            dangerouslySetInnerHTML={{ __html: extractPureHTML(currentData.content) }}
             onClick={handleHtmlClick}
           />
         </div>
@@ -390,13 +358,11 @@ function App() {
   };
 
   const handleHtmlClick = (e: React.MouseEvent) => {
-    // Handle form submissions from HTML content
     const target = e.target as HTMLElement;
     
     if (target.tagName === 'BUTTON' && target.getAttribute('type') === 'submit') {
       e.preventDefault();
       
-      // Find the parent form
       const form = target.closest('form');
       if (form) {
         const formData = new FormData(form);
@@ -406,7 +372,6 @@ function App() {
           data[key] = value;
         });
         
-        // Send form data to agent
         const submitMessage = `Create promotion with data: ${JSON.stringify(data)}`;
         
         const userMessage: ChatMessage = {
@@ -428,7 +393,6 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
-      {/* Header */}
       <header className="bg-gray-800 shadow-sm border-b border-gray-700 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl text-gray-100" style={{fontFamily: 'Unbounded, sans-serif', fontWeight: 900}}>
@@ -437,17 +401,13 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content - Vertical Split */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Chat Panel (Left - 40%) */}
         <div className="w-2/5 flex flex-col border-r border-gray-200 h-full bg-white">
-          {/* Chat Messages */}
           <div 
             ref={messagesContainerRef}
             className="flex-1 p-6 overflow-y-auto space-y-3"
             onScroll={handleScroll}
           >
-            {/* QuickStart Pills - Initial Position */}
             {showQuickStarts && !quickStartsMinimized && messages.length === 0 && (
               <div className="mb-6">
                 <p className="text-sm font-medium mb-3" style={{color: 'var(--text-secondary)'}}>
@@ -482,7 +442,7 @@ function App() {
                       </div>
                     ) : (
                       <div className="text-sm" dangerouslySetInnerHTML={{ 
-                        __html: marked.parse(formatRawResponse(message.raw_response || message.content)) as string 
+                        __html: marked.parse(message.content) as string 
                       }} />
                     )}
                     {message.is_streaming && (
@@ -491,8 +451,7 @@ function App() {
                   </div>
                 </div>
                 
-                {/* Raw response toggle for HTML messages */}
-                {message.type === 'agent' && message.raw_response && message.is_complete && (
+                {message.type === 'agent' && message.raw_response && (
                   <div className="ml-4 mt-2">
                     <button
                       onClick={() => toggleRawResponse(message.id)}
@@ -504,29 +463,22 @@ function App() {
                     
                     {message.expanded && (
                       <div className="mt-2 p-3 bg-gray-100 rounded text-xs text-gray-700 max-h-32 overflow-y-auto">
-                        <pre className="whitespace-pre-wrap">{message.raw_response}</pre>
+                        <div dangerouslySetInnerHTML={{ 
+                          __html: marked.parse(message.raw_response) as string 
+                        }} />
                       </div>
                     )}
                   </div>
                 )}
               </div>
             ))}
-            {(isProcessing || thinkingStep) && (
+            
+            {isProcessing && (
               <div className="flex justify-start">
                 <div className="message-agent flex items-center space-x-2">
                   <div className="loading-spinner"></div>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {thinkingStep ? 'Thinking...' : 'Processing your request...'}
-                    </p>
-                    {thinkingStep && (
-                      <p className="text-xs text-gray-600 mt-1">
-                        <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                        </svg>
-                        {thinkingStep}
-                      </p>
-                    )}
+                  <div className="text-sm">
+                    {getCurrentStepStatus()}
                   </div>
                 </div>
               </div>
@@ -534,9 +486,7 @@ function App() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Chat Input */}
           <div className="chat-panel">
-            {/* Connection Status */}
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
                 <div className={`rounded-full transition-all duration-300 ${
@@ -556,7 +506,6 @@ function App() {
               </div>
             </div>
 
-            {/* Minimized QuickStart Pills */}
             {showQuickStarts && quickStartsMinimized && (
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex gap-1 overflow-x-auto flex-1 mr-2" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
@@ -609,7 +558,6 @@ function App() {
               </button>
             </div>
 
-            {/* AI Disclaimer */}
             <p className="text-xs text-gray-500 mt-2 text-center">
               FairClaim uses AI. Please verify important information.
             </p>
@@ -622,17 +570,14 @@ function App() {
           </div>
         </div>
 
-        {/* Data Panel (Right - 60%) */}
         <div className="w-3/5 p-6 overflow-auto h-full relative bg-gray-200">
-          {/* Content with conditional blur */}
-          <div className={`${(isProcessing || thinkingStep || streamingMessageId !== null) ? 'blur-sm opacity-50' : ''} transition-all duration-300`}>
+          <div className={`${isProcessing ? 'blur-sm opacity-50' : ''} transition-all duration-300`}>
             {renderDataPanel()}
           </div>
           
-          {/* Processing Overlay */}
-          {(isProcessing || thinkingStep || streamingMessageId !== null) && (
+          {isProcessing && (
             <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-20 backdrop-blur-sm">
-              <ProcessingAnimation />
+              {renderProgressOverlay()}
             </div>
           )}
         </div>
