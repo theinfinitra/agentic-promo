@@ -19,6 +19,17 @@ Parameters:
     Description: Database master password (min 8 characters)
   
 Resources:
+  # S3 Bucket for Chat Sessions
+  ChatSessionsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-agent-sessions'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   # DynamoDB Tables
   PromotionsTable:
     Type: AWS::DynamoDB::Table
@@ -354,6 +365,7 @@ Resources:
           AURORA_DATABASE_NAME: analytics
           AURORA_USERNAME: !Ref DBUsername
           AURORA_SECRET_ARN: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:agentic-promo/aurora/credentials-*'
+          CHAT_SESSIONS_BUCKET: !Ref ChatSessionsBucket
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 900  # 15 minutes for long LLM operations
       MemorySize: 1024  # Increased for Strands Agents
@@ -463,6 +475,19 @@ Resources:
                   - secretsmanager:DescribeSecret
                 Resource: 
                   - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:agentic-promo/aurora/credentials-*'
+        - PolicyName: S3ChatSessionsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Resource: !Sub '${ChatSessionsBucket.Arn}/*'
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt ChatSessionsBucket.Arn
 
   # WebSocket API Gateway
   WebSocketApi:

@@ -1,11 +1,12 @@
 import json
-import boto3
 import os
 from datetime import datetime
 from decimal import Decimal
-from functools import lru_cache
 from strands.agent import Agent
-from config.data_sources import get_data_source_context
+from strands.agent.conversation_manager import SlidingWindowConversationManager
+from strands.session.s3_session_manager import S3SessionManager
+
+# from config.data_sources import get_data_source_context
 
 # Import Strands tools directly (these are DecoratedFunctionTool objects)
 from tools.data_agent_tool import process_data_request
@@ -13,9 +14,10 @@ from tools.promotion_tool import create_promotion
 from tools.email_tool import send_email
 from tools.ui_agent_tool import generate_ui_component
 from streaming import send_stream_message
-from utils.progress_manager import ProgressManager
+# from utils.progress_manager import ProgressManager
 from tools.data_agent_tool import set_global_callback as set_data_callback
 from tools.ui_agent_tool import set_global_callback as set_ui_callback
+
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -23,47 +25,60 @@ class DecimalEncoder(json.JSONEncoder):
             return float(obj)
         return super(DecimalEncoder, self).default(obj)
 
-def create_streaming_agent(stream_context, user_input="", callback_handler=None):
+def create_streaming_agent(connection_id, stream_context, user_input="", callback_handler=None):
     """Create agent with Strands-native streaming and progress management"""
     
     # Initialize progress manager
-    progress_manager = ProgressManager(stream_context)
+    # progress_manager = ProgressManager(stream_context)
     
     # Create enhanced streaming callback that filters thinking content
-    def enhanced_callback(chunk=None, **kwargs):
-        """Enhanced callback that accepts all Strands parameters"""
-        if not chunk:
-            return
+    # def enhanced_callback(chunk=None, **kwargs):
+    #     """Enhanced callback that accepts all Strands parameters"""
+    #     if not chunk:
+    #         return
             
-        if chunk.get('type') == 'text_chunk':
-            content = chunk.get('content', '')
-            # Filter thinking content and send progress updates
-            filtered_content = progress_manager.filter_thinking_content(content, user_input)
+    #     if chunk.get('type') == 'text_chunk':
+    #         content = chunk.get('content', '')
+    #         # Filter thinking content and send progress updates
+    #         filtered_content = progress_manager.filter_thinking_content(content, user_input)
             
-            # Only send non-empty filtered content
-            if filtered_content:
-                send_stream_message(stream_context, {
-                    "type": "text_chunk",
-                    "content": filtered_content,
-                    "timestamp": datetime.now().isoformat()
-                })
-        elif chunk.get('type') == 'tool_call':
-            # Send phase update when tools are called
-            tool_name = chunk.get('tool_name', '')
-            progress_manager.detect_tool_phase(tool_name, user_input)
-            # Don't send the raw tool_call message to frontend
-        else:
-            # Pass through other message types unchanged
-            send_stream_message(stream_context, chunk)
+    #         # Only send non-empty filtered content
+    #         if filtered_content:
+    #             send_stream_message(stream_context, {
+    #                 "type": "text_chunk",
+    #                 "content": filtered_content,
+    #                 "timestamp": datetime.now().isoformat()
+    #             })
+    #     elif chunk.get('type') == 'tool_call':
+    #         # Send phase update when tools are called
+    #         tool_name = chunk.get('tool_name', '')
+    #         progress_manager.detect_tool_phase(tool_name, user_input)
+    #         # Don't send the raw tool_call message to frontend
+    #     else:
+    #         # Pass through other message types unchanged
+    #         send_stream_message(stream_context, chunk)
     
     
     # Generate dynamic system prompt
-    data_context = get_data_source_context()
+    # data_context = get_data_source_context() 
+    # {data_context}
+
+    # Create a conversation manager with custom window size
+    conversation_manager = SlidingWindowConversationManager(
+            window_size=20,  # Maximum number of messages to keep
+            should_truncate_results=True, # Enable truncating the tool result when a message is too large for the model's context window 
+        )
+
+    session_manager = S3SessionManager(
+            session_id=connection_id,
+            bucket=os.environ.get('CHAT_SESSIONS_BUCKET')
+        )
+
     
     system_prompt = f"""
         You are an intelligent orchestrator that delegates specialized tasks to expert agents and tools.
 
-        {data_context}
+        
 
         CORE PRINCIPLE: You are a COORDINATOR, not a direct executor. Always delegate to specialized tools.
 
@@ -116,7 +131,9 @@ def create_streaming_agent(stream_context, user_input="", callback_handler=None)
         model="us.amazon.nova-premier-v1:0",
         system_prompt=system_prompt,
         tools=[process_data_request, generate_ui_component, send_email],
-        callback_handler=callback_handler
+        callback_handler=callback_handler,
+        session_manager=session_manager,
+        conversation_manager=conversation_manager
     )
 
     
@@ -278,6 +295,9 @@ def lambda_handler(event, context):
         
         body = json.loads(event.get('body', '{}'))
         user_input = body.get('input', '')
+
+        
+
         
         print(f"🔧 Hybrid Orchestrator - Processing: {user_input}")
         
@@ -345,7 +365,7 @@ def lambda_handler(event, context):
                 agent_input = "Hello, I need help with data analysis."
             
             # Create streaming agent with callback
-            agent = create_streaming_agent(stream_context, agent_input, callback_handler)
+            agent = create_streaming_agent(connection_id, stream_context, agent_input, callback_handler)
             
             print(f"🚀 Executing agent with streaming enabled...")
             
