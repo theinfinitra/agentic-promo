@@ -143,8 +143,8 @@ DATA_SOURCES = {
     # Aurora - Analytical Data (Complex queries, segmentation, insights)
     "customer_analytics": {
         "type": "aurora",
-        "cluster_arn": "arn:aws:rds:us-east-1:018503853550:cluster:agentic-promo-analytics-cluster",
-        "secret_arn": "arn:aws:secretsmanager:us-east-1:018503853550:secret:agentic-promo/aurora/credentials-d9S4RO",
+        "cluster_arn": os.environ.get('AURORA_CLUSTER_ARN'), # "arn:aws:rds:us-east-1:018503853550:cluster:agentic-promo-analytics-cluster"
+        "secret_arn": os.environ.get('AURORA_SECRET_ARN'), # "arn:aws:secretsmanager:us-east-1:018503853550:secret:agentic-promo/aurora/credentials-d9S4RO"
         "database": "analytics",
         "description": "Advanced customer analytics and segmentation data",
         "tables": {

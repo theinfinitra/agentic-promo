@@ -1,21 +1,13 @@
 #!/bin/bash
 
 # Agentic Promotion Engine - Deployment Script
-# Usage: ./deploy.sh [stack-name] [profile] [region] [db-password]
+# Usage: ./deploy.sh [stack-name] [profile] [region]
 
 set -e
 
 STACK_NAME=${1:-agentic-promo}
 PROFILE=${2:-infinitra-noone}
 REGION=${3:-us-east-1}
-DB_PASSWORD=${4}
-
-if [ -z "$DB_PASSWORD" ]; then
-    echo "❌ Error: Database password is required"
-    echo "Usage: ./deploy.sh [stack-name] [profile] [region] [db-password]"
-    echo "Example: ./deploy.sh agentic-promo infinitra-noone us-east-1 MySecurePassword123"
-    exit 1
-fi
 
 echo "🚀 Deploying Agentic Promotion Engine with Aurora"
 echo "Stack Name: $STACK_NAME"
@@ -34,7 +26,7 @@ echo "🏗️  Deploying CloudFormation stack..."
 aws cloudformation deploy \
     --template-file infrastructure/cloudformation/main.yaml \
     --stack-name $STACK_NAME \
-    --parameter-overrides Environment=prod DBPassword=$DB_PASSWORD \
+    --parameter-overrides Environment=prod \
     --capabilities CAPABILITY_IAM \
     --profile $PROFILE \
     --region $REGION
@@ -52,6 +44,12 @@ aws lambda update-function-code \
 #     --zip-file fileb://agentic-promo-lambda.zip \
 #     --profile infinitra-noone \
 #     --region us-east-1
+
+# aws lambda update-function-code \
+#   --function-name agentic-promo-scudo-kpis \
+#   --zip-file fileb://agentic-promo-lambda.zip \
+#   --profile infinitra-noone
+#   --region us-east-1
 
 # Get outputs
 echo "📤 Stack outputs:"

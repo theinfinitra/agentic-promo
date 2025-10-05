@@ -14,6 +14,15 @@ mkdir -p $BUILD_DIR
 echo "📋 Copying src contents to root level..."
 cp -r src/* $BUILD_DIR/
 
+# Copy functions directory to root level
+echo "📋 Copying functions contents to root level..."
+if [ -d "functions" ]; then
+    cp -r functions/* $BUILD_DIR/
+    echo "✅ Functions directory included"
+else
+    echo "⚠️  Functions directory not found, skipping..."
+fi
+
 cd $BUILD_DIR
 
 # Clean up

@@ -1,13 +1,15 @@
 # Scudo 2025: Revolutionary Customer Intelligence Interface
+
 **Spatial Computing + AI-Native Design**
 
-*Created: October 3, 2024*
+_Created: October 3, 2024_
 
 ---
 
 ## 🚀 **Revolutionary Design Concept: "Ambient Customer Intelligence"**
 
 ### **Core Innovation: 3D Spatial Workspace with AI Companion**
+
 Instead of traditional flat panels, Scudo uses **spatial layers** and an **AI companion** that proactively surfaces insights based on user attention and context.
 
 ---
@@ -15,6 +17,7 @@ Instead of traditional flat panels, Scudo uses **spatial layers** and an **AI co
 ## 🌌 **Main Interface: Spatial Customer Universe**
 
 ### **Desktop Experience (Immersive 3D Workspace)**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 🛡️ Scudo Intelligence Workspace    👁️ Eye Tracking: Focused on VIP Segment     │
@@ -66,6 +69,7 @@ Interaction Methods:
 ## 🎭 **Revolutionary UX Patterns**
 
 ### **1. Attention-Aware Interface**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 👁️ EYE TRACKING + AI PROACTIVITY                                               │
@@ -87,6 +91,7 @@ Interaction Methods:
 ```
 
 ### **2. Spatial Data Storytelling**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 🌌 3D CUSTOMER JOURNEY VISUALIZATION                                           │
@@ -112,6 +117,7 @@ Interaction Methods:
 ```
 
 ### **3. Ambient Intelligence Layers**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 🌊 AMBIENT INTELLIGENCE OVERLAY                                                │
@@ -139,6 +145,7 @@ Interaction Methods:
 ## 🎨 **Innovative Interaction Patterns**
 
 ### **1. Gesture-Based Customer Analysis**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ ✋ GESTURE CONTROLS (Touch/Air Gestures)                                       │
@@ -155,6 +162,7 @@ Interaction Methods:
 ```
 
 ### **2. Voice-First Conversational Interface**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 🎤 NATURAL LANGUAGE INTERFACE                                                  │
@@ -178,6 +186,7 @@ Interaction Methods:
 ```
 
 ### **3. Biometric-Responsive Design**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 🧠 BIOMETRIC ADAPTATION                                                        │
@@ -203,6 +212,7 @@ Interaction Methods:
 ## 📱 **Revolutionary Mobile Experience**
 
 ### **Mobile: AR-Enhanced Customer Intelligence**
+
 ```
 ┌─────────────────────────────┐
 │ 📱 SCUDO AR MOBILE          │
@@ -238,6 +248,7 @@ Interaction Methods:
 ## 🎯 **Contextual AI Companion Behaviors**
 
 ### **Proactive Intelligence Scenarios**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 🤖 AI COMPANION PERSONALITY & BEHAVIORS                                        │
@@ -270,30 +281,35 @@ Interaction Methods:
 ### **🚀 Breakthrough Innovations**
 
 #### **1. Spatial Customer Intelligence**
+
 - **3D layered visualization** of customer segments
 - **Depth-based priority** (urgent customers float higher)
 - **Gravitational relationships** (similar customers cluster)
 - **Temporal dimensions** (past-present-future timeline)
 
 #### **2. Ambient AI Companion**
+
 - **Proactive insights** based on attention patterns
 - **Contextual personality** (morning briefings, crisis mode)
 - **Learning behavior** (adapts to user preferences)
 - **Emotional intelligence** (celebrates wins, supports challenges)
 
 #### **3. Multi-Modal Interaction**
+
 - **Voice-first** natural conversation
 - **Eye tracking** for attention-aware suggestions
 - **Gesture control** for intuitive manipulation
 - **Biometric adaptation** for stress-responsive design
 
 #### **4. Predictive Visualization**
+
 - **Future state modeling** (where customers are heading)
 - **Intervention probability** (success rates of actions)
 - **Real-time adaptation** (interface changes with new data)
 - **Ambient intelligence** (background processing, foreground insights)
 
 #### **5. Contextual Automation**
+
 - **Smart notifications** (right time, right urgency)
 - **Predictive actions** (AI suggests before you ask)
 - **Workflow automation** (seamless task execution)
@@ -304,6 +320,7 @@ Interaction Methods:
 ## 🎨 **Visual Design Language**
 
 ### **Spatial Design Elements**
+
 ```
 Color Depth System:
 🔴 Urgent (Red) - Immediate attention, elevated in 3D space
@@ -311,6 +328,16 @@ Color Depth System:
 🟢 Healthy (Green) - Stable customers, base level
 🔵 Opportunity (Blue) - Growth potential, highlighted edges
 ⚫ Dormant (Gray) - Inactive, lower in space
+
+#272757 - Growth potential, highlighted edges
+#8686AC - Inactive, lower in space
+#505081
+#0F0E47
+#718096
+#F8F9FA
+Error - #EF4444
+Success/Healthy - #174D38
+Warning - #4D1717
 
 Lighting & Atmosphere:
 💡 Focused spotlight follows user attention
@@ -325,6 +352,7 @@ Typography in 3D:
 ```
 
 ### **Animation & Transitions**
+
 ```
 Micro-Interactions:
 🎭 Customer profiles "breathe" (subtle scale animation)

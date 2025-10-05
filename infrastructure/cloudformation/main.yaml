@@ -12,12 +12,6 @@ Parameters:
     Default: postgres
     Description: Database master username
   
-  DBPassword:
-    Type: String
-    NoEcho: true
-    MinLength: 8
-    Description: Database master password (min 8 characters)
-  
 Resources:
   # S3 Bucket for Chat Sessions
   ChatSessionsBucket:
@@ -262,7 +256,7 @@ Resources:
       Engine: aurora-postgresql
       EngineVersion: '15.4'
       MasterUsername: !Ref DBUsername
-      MasterUserPassword: !Ref DBPassword
+      ManageMasterUserPassword: true
       DatabaseName: analytics
       DBSubnetGroupName: !Ref DBSubnetGroup
       VpcSecurityGroupIds:
@@ -364,11 +358,42 @@ Resources:
           AURORA_CLUSTER_ARN: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
           AURORA_DATABASE_NAME: analytics
           AURORA_USERNAME: !Ref DBUsername
-          AURORA_SECRET_ARN: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:agentic-promo/aurora/credentials-*'
+          AURORA_SECRET_ARN: !GetAtt AuroraCluster.MasterUserSecret.SecretArn
           CHAT_SESSIONS_BUCKET: !Ref ChatSessionsBucket
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 900  # 15 minutes for long LLM operations
       MemorySize: 1024  # Increased for Strands Agents
+
+  # Scudo KPI Function
+  ScudoKPIFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-scudo-kpis'
+      Runtime: python3.11
+      Handler: kpis.lambda_handler
+      Code:
+        ZipFile: !Sub |
+          # This will be replaced during deployment with the actual function code
+          # Source: functions/kpis.py
+          import json
+          def lambda_handler(event, context):
+              return {
+                  "statusCode": 200,
+                  "headers": {"Access-Control-Allow-Origin": "*"},
+                  "body": json.dumps({"message": "Deploy with packaged code from functions/kpis.py"})
+              }
+      Environment:
+        Variables:
+          AURORA_CLUSTER_ARN: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
+          AURORA_DATABASE_NAME: analytics
+          AURORA_SECRET_ARN: !GetAtt AuroraCluster.MasterUserSecret.SecretArn
+          CUSTOMER_METRICS_TABLE: customer_metrics
+          SEGMENTS_TABLE: segments
+          SEGMENT_ASSIGNMENTS_TABLE: segment_assignments
+          BEHAVIORAL_ANALYTICS_TABLE: behavioral_analytics
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
 
   # WebSocket Lambda Permissions
   ConnectLambdaPermission:
@@ -394,6 +419,14 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/*'
+
+  ScudoKPILambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ScudoKPIFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ScudoDashboardAPI}/*/*'
 
   # IAM Role for Lambda
   LambdaExecutionRole:
@@ -474,7 +507,7 @@ Resources:
                   - secretsmanager:GetSecretValue
                   - secretsmanager:DescribeSecret
                 Resource: 
-                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:agentic-promo/aurora/credentials-*'
+                  - !GetAtt AuroraCluster.MasterUserSecret.SecretArn
         - PolicyName: S3ChatSessionsAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -546,6 +579,39 @@ Resources:
       StageName: !Ref Environment
       AutoDeploy: true
 
+  # Scudo Dashboard API Gateway
+  ScudoDashboardAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-scudo-dashboard-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: ['GET', 'POST']
+        AllowHeaders: ['*']
+
+  ScudoKPIIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ScudoDashboardAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ScudoKPIFunction.Arn}/invocations'
+      PayloadFormatVersion: '2.0'
+
+  ScudoKPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ScudoDashboardAPI
+      RouteKey: 'GET /api/dashboard/kpis'
+      Target: !Sub 'integrations/${ScudoKPIIntegration}'
+
+  ScudoDashboardStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ScudoDashboardAPI
+      StageName: !Ref Environment
+      AutoDeploy: true
+
 Outputs:
   WebSocketEndpoint:
     Description: WebSocket API endpoint URL
@@ -576,3 +642,9 @@ Outputs:
     Value: analytics
     Export:
       Name: !Sub '${AWS::StackName}-database-name'
+
+  ScudoDashboardAPIEndpoint:
+    Description: Scudo Dashboard API endpoint URL
+    Value: !Sub 'https://${ScudoDashboardAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-scudo-dashboard-endpoint'
