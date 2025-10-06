@@ -40,24 +40,25 @@ export const useWebSocket = () => {
         }
       };
       
-      ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.current.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
         setIsConnected(false);
         setIsConnecting(false);
         
-        // Only show error after first successful connection
-        if (reconnectAttempts.current > 0) {
+        // Don't show error for normal closure or if never connected
+        if (event.code !== 1000 && reconnectAttempts.current > 0) {
           setError('Connection lost. Reconnecting...');
         }
         
-        // Auto-reconnect with exponential backoff
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.pow(2, reconnectAttempts.current) * 1000;
+        // Auto-reconnect with exponential backoff, but not for normal closure
+        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
+          const delay = Math.min(Math.pow(2, reconnectAttempts.current) * 1000, 30000); // Max 30s
+          console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
           setTimeout(() => {
             reconnectAttempts.current++;
             connect();
           }, delay);
-        } else {
+        } else if (event.code !== 1000) {
           setError('Unable to connect. Please refresh the page.');
         }
       };

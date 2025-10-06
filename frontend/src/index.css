@@ -212,7 +212,7 @@
 
 /* Sidebar navigation icons - use CSS variables to prevent override */
 .sidebar-nav-icon {
-  --icon-size: 16px;
+  --icon-size: 14px;
   width: var(--icon-size) !important;
   height: var(--icon-size) !important;
   min-width: var(--icon-size) !important;
@@ -222,7 +222,7 @@
 }
 
 .sidebar-nav-icon.collapsed {
-  --icon-size: 28px;
+  --icon-size: 20px;
 }
 
 /* Tooltip styles */
@@ -987,6 +987,41 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
 }
 
+/* Dashboard readability improvements */
+.dashboard-section-header {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+}
+
+.customer-name {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.kpi-value {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+}
+
+.segment-count {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+}
+
+.segment-name {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.chat-message-content {
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+}
+
+.chat-input-field {
+  font-size: 15px !important;
+}
+
 .text-success {
   color: var(--success);
 }
@@ -1024,41 +1059,45 @@ h1, h2, h3, h4, h5, h6 {
 .animate-pulse {
   animation: blink 1s infinite;
 }
-/* Markdown formatting in messages */
-.message-agent h1, .message-agent h2, .message-agent h3 {
-  font-weight: bold;
-  margin: 0.5rem 0;
+/* Daily briefing markdown styling */
+.prose h1, .prose h2, .prose h3 {
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+  margin: 0.5rem 0 !important;
 }
 
-.message-agent h1 { font-size: 1.25rem; }
-.message-agent h2 { font-size: 1.125rem; }
-.message-agent h3 { font-size: 1rem; }
+.prose h1 { font-size: 1.25rem !important; }
+.prose h2 { font-size: 1.125rem !important; }
+.prose h3 { font-size: 1rem !important; }
 
-.message-agent pre {
-  background: #f5f5f5;
-  padding: 0.75rem;
-  border-radius: 0.375rem;
-  overflow-x: auto;
-  margin: 0.5rem 0;
+.prose p {
+  margin: 0.5rem 0 !important;
+  line-height: 1.6 !important;
 }
 
-.message-agent code {
-  background: #f5f5f5;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-family: 'Courier New', monospace;
+.prose ul, .prose ol {
+  margin: 0.5rem 0 !important;
+  padding-left: 1.5rem !important;
 }
 
-.message-agent pre code {
-  background: none;
-  padding: 0;
+.prose li {
+  margin: 0.25rem 0 !important;
 }
 
-.message-agent p {
-  margin: 0.5rem 0;
+.prose strong {
+  font-weight: 600 !important;
+  color: var(--primary) !important;
 }
 
-.message-agent ul, .message-agent ol {
-  margin: 0.5rem 0;
-  padding-left: 1.5rem;
+.prose em {
+  font-style: italic !important;
+  color: var(--textSecondary) !important;
+}
+
+.prose code {
+  background: #f5f5f5 !important;
+  padding: 0.125rem 0.25rem !important;
+  border-radius: 0.25rem !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.875rem !important;
 }
