@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { TableComponent } from './components/TableComponent';
 import { FormComponent } from './components/FormComponent';
@@ -19,26 +19,7 @@ const extractPureHTML = (content: string): string => {
   return content.trim();
 };
 
-const extractInsightsOnly = (content: string): string => {
-  if (!content) return '';
-  
-  let insights = content.replace(/```html[\s\S]*?```/gi, '');
-  insights = insights.replace(/<(div|table|form|section|article)[^>]*>[\s\S]*?<\/\1>/gi, '');
-  insights = insights.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
-  
-  insights = insights.replace(/\n\s*\n/g, '\n').trim();
-  
-  return insights || content;
-};
 
-const formatRawResponse = (rawResponse: string): string => {
-  if (!rawResponse) return '';
-  
-  let formatted = rawResponse.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
-  formatted = formatted.replace(/```html[\s\S]*?```/g, '');
-  
-  return formatted.trim();
-};
 
 const cleanChatResponse = (content: string): string => {
   if (!content) return '';
@@ -55,24 +36,13 @@ const cleanChatResponse = (content: string): string => {
   return cleaned;
 };
 
-const formatChatMessage = (content: string): string => {
-  if (!content) return '';
-  
-  let formatted = content.replace(/<thinking[\s\S]*?<\/thinking>/gi, '');
-  formatted = formatted.replace(/```html[\s\S]*?```/gi, '');
-  
-  return formatted.trim();
-};
+
 
 function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [currentData, setCurrentData] = useState<StructuredData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [thinkingStep, setThinkingStep] = useState('');
-  const [currentPhase, setCurrentPhase] = useState<ProgressPhase | null>(null);
-  const [progressDetails, setProgressDetails] = useState<string[]>([]);
-  const [currentAgent, setCurrentAgent] = useState('');
   
   const [stepThinking, setStepThinking] = useState({
     analysis: [] as string[],
@@ -82,18 +52,17 @@ function App() {
   const [currentStep, setCurrentStep] = useState<'analysis' | 'data' | 'ui'>('analysis');
   const [activeSteps, setActiveSteps] = useState<('analysis' | 'data' | 'ui')[]>(['analysis']);
   const [processingStartTime, setProcessingStartTime] = useState<Date | null>(null);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   
   const { isConnected, isConnecting, lastMessage, sendMessage, error } = useWebSocket();
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     if (!userScrolledUp) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  };
+  }, [userScrolledUp]);
 
   const handleScroll = () => {
     if (messagesContainerRef.current) {
@@ -113,12 +82,7 @@ function App() {
     return "🧠 Analyzing request...";
   };
 
-  const getStepStatus = (step: 'analysis' | 'data' | 'ui') => {
-    if (step === currentStep) return 'active';
-    if ((step === 'analysis' && currentStep !== 'analysis') || 
-        (step === 'data' && currentStep === 'ui')) return 'completed';
-    return 'pending';
-  };
+
 
   const getElapsedTime = () => {
     if (!processingStartTime) return '00:00';
@@ -138,7 +102,7 @@ function App() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isProcessing]);
+  }, [messages, isProcessing, scrollToBottom]);
 
   useEffect(() => {
     if (lastMessage) {
@@ -148,10 +112,6 @@ function App() {
         setCurrentStep('analysis');
         setActiveSteps(['analysis']);
         setStepThinking({ analysis: [], data: [], ui: [] });
-        setThinkingStep('');
-        setCurrentPhase(null);
-        setProgressDetails([]);
-        setCurrentAgent('');
       } else if (lastMessage.type === 'tool_progress') {
         const tool = lastMessage.tool || '';
         if (tool.includes('process_data_request')) {
@@ -161,7 +121,6 @@ function App() {
           setCurrentStep('ui');
           setActiveSteps(prev => prev.includes('ui') ? prev : [...prev, 'ui']);
         }
-        setThinkingStep(`${tool}: executing...`);
       } else if (lastMessage.type === 'text_chunk') {
         const content = lastMessage.content || '';
         
@@ -176,9 +135,6 @@ function App() {
       } else if (lastMessage.type === 'response') {
         setIsProcessing(false);
         setProcessingStartTime(null);
-        setThinkingStep('');
-        setCurrentPhase(null);
-        setCurrentAgent('');
         
         // Add final message to chat
         const finalMessage: ChatMessage = {
@@ -199,7 +155,7 @@ function App() {
         }
       }
     }
-  }, [lastMessage, streamingMessageId, currentStep]);
+  }, [lastMessage, currentStep]);
 
   const renderProgressOverlay = () => {
     const stepConfig = {
@@ -402,7 +358,7 @@ function App() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-2/5 flex flex-col border-r border-gray-200 h-full bg-white">
+        <div className="flex flex-col border-r border-gray-200 h-full bg-white" style={{width: '30%'}}>
           <div 
             ref={messagesContainerRef}
             className="flex-1 p-6 overflow-y-auto space-y-3"
@@ -545,11 +501,11 @@ function App() {
                   !isConnected ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''
                 }`}
                 style={{borderColor: 'var(--border-light)'}}
-                disabled={!isConnected || isProcessing || streamingMessageId !== null}
+                disabled={!isConnected || isProcessing}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!isConnected || isProcessing || !inputValue.trim() || streamingMessageId !== null}
+                disabled={!isConnected || isProcessing || !inputValue.trim()}
                 className="send-btn-connected disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
@@ -570,7 +526,7 @@ function App() {
           </div>
         </div>
 
-        <div className="w-3/5 p-6 overflow-auto h-full relative bg-gray-200">
+        <div className="p-6 overflow-auto h-full relative bg-gray-200" style={{width: '70%'}}>
           <div className={`${isProcessing ? 'blur-sm opacity-50' : ''} transition-all duration-300`}>
             {renderDataPanel()}
           </div>

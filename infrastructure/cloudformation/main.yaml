@@ -395,6 +395,37 @@ Resources:
       Timeout: 30
       MemorySize: 256
 
+  # Scudo Segments Function
+  ScudoSegmentsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-scudo-segments'
+      Runtime: python3.11
+      Handler: segments.lambda_handler
+      Code:
+        ZipFile: !Sub |
+          # This will be replaced during deployment with the actual function code
+          # Source: functions/segments.py
+          import json
+          def lambda_handler(event, context):
+              return {
+                  "statusCode": 200,
+                  "headers": {"Access-Control-Allow-Origin": "*"},
+                  "body": json.dumps({"message": "Deploy with packaged code from functions/segments.py"})
+              }
+      Environment:
+        Variables:
+          AURORA_CLUSTER_ARN: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraCluster}'
+          AURORA_DATABASE_NAME: analytics
+          AURORA_SECRET_ARN: !GetAtt AuroraCluster.MasterUserSecret.SecretArn
+          CUSTOMER_METRICS_TABLE: customer_metrics
+          SEGMENTS_TABLE: segments
+          SEGMENT_ASSIGNMENTS_TABLE: segment_assignments
+          BEHAVIORAL_ANALYTICS_TABLE: behavioral_analytics
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+
   # WebSocket Lambda Permissions
   ConnectLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -424,6 +455,14 @@ Resources:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref ScudoKPIFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ScudoDashboardAPI}/*/*'
+
+  ScudoSegmentsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ScudoSegmentsFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ScudoDashboardAPI}/*/*'
@@ -604,6 +643,21 @@ Resources:
       ApiId: !Ref ScudoDashboardAPI
       RouteKey: 'GET /api/dashboard/kpis'
       Target: !Sub 'integrations/${ScudoKPIIntegration}'
+
+  ScudoSegmentsIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ScudoDashboardAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ScudoSegmentsFunction.Arn}/invocations'
+      PayloadFormatVersion: '2.0'
+
+  ScudoSegmentsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ScudoDashboardAPI
+      RouteKey: 'GET /api/dashboard/segments'
+      Target: !Sub 'integrations/${ScudoSegmentsIntegration}'
 
   ScudoDashboardStage:
     Type: AWS::ApiGatewayV2::Stage

@@ -310,137 +310,43 @@ export const CustomerDashboard: React.FC = () => {
       
       console.log('Real KPI data:', realKPIs);
       
-      // Mock segment data with customers
-      const mockSegments: SegmentData[] = [
-        {
-          name: 'VIP',
-          count: 12,
-          revenue: 156000,
-          avgRisk: 0.08,
-          icon: 'crown',
-          color: colors.primary, // Purple for VIP
-          customers: [
-            {
-              id: 'cust-001',
-              name: 'David Kim',
-              email: 'david.kim@business.com',
-              totalSpent: 8500,
-              churnRisk: 0.05,
-              segment: 'VIP',
-              lifecycleStage: 'VIP',
-              lastPurchase: '2024-09-30'
-            },
-            {
-              id: 'cust-006',
-              name: 'Sarah Wilson',
-              email: 'sarah.wilson@corp.com',
-              totalSpent: 6200,
-              churnRisk: 0.12,
-              segment: 'VIP',
-              lifecycleStage: 'VIP',
-              lastPurchase: '2024-10-01'
-            }
-          ]
-        },
-        {
-          name: 'Active',
-          count: 45,
-          revenue: 89000,
-          avgRisk: 0.18,
-          icon: 'check-circle',
-          color: colors.primary, // Green for Active
-          customers: [
-            {
-              id: 'cust-003',
-              name: 'Mike Johnson',
-              email: 'mike.johnson@email.com',
-              totalSpent: 1200,
-              churnRisk: 0.25,
-              segment: 'Active',
-              lifecycleStage: 'Active',
-              lastPurchase: '2024-09-20'
-            }
-          ]
-        },
-        {
-          name: 'At-Risk',
-          count: 23,
-          revenue: 34000,
-          avgRisk: 0.35,
-          icon: 'exclamation-triangle',
-          color: colors.primary, // Orange for At-Risk
-          customers: [
-            {
-              id: 'cust-002',
-              name: 'Lisa Thompson',
-              email: 'lisa.thompson@newbie.com',
-              totalSpent: 450,
-              churnRisk: 0.30,
-              segment: 'At-Risk',
-              lifecycleStage: 'New',
-              lastPurchase: '2024-08-15'
-            },
-            {
-              id: 'cust-007',
-              name: 'Bob Martinez',
-              email: 'bob.martinez@email.com',
-              totalSpent: 890,
-              churnRisk: 0.45,
-              segment: 'At-Risk',
-              lifecycleStage: 'Active',
-              lastPurchase: '2024-07-20'
-            }
-          ]
-        },
-        {
-          name: 'Dormant',
-          count: 8,
-          revenue: 2000,
-          avgRisk: 0.75,
-          icon: 'pause-circle',
-          color: colors.primary, // Muted gray for Dormant
-          customers: [
-            {
-              id: 'cust-005',
-              name: 'Robert Chen',
-              email: 'robert.chen@email.com',
-              totalSpent: 150,
-              churnRisk: 0.80,
-              segment: 'Dormant',
-              lifecycleStage: 'Dormant',
-              lastPurchase: '2024-06-10'
-            }
-          ]
-        }
-      ];
+      // Fetch real segment data
+      const segmentResponse = await fetch(`${API_BASE_URL}/api/dashboard/segments`);
+      const realSegments = await segmentResponse.json();
+      
+      console.log('Real Segment data:', realSegments);
+      
+      // Map API response to frontend format
+      const segmentData: SegmentData[] = realSegments.segments?.map((segment: any) => ({
+        name: segment.name,
+        count: segment.count,
+        revenue: segment.revenue,
+        avgRisk: segment.avgRisk,
+        icon: segment.icon,
+        color: segment.color,
+        customers: [] // Will be populated when segment is clicked
+      })) || [];
 
       setKPIs(realKPIs);
-      setSegments(mockSegments);
+      setSegments(segmentData);
       
-      // Generate AI suggestion
-      const atRiskSegment = mockSegments.find(s => s.name === 'At-Risk');
-      if (atRiskSegment && atRiskSegment.customers.length > 0) {
-        setAISuggestion(`I've identified ${atRiskSegment.count} at-risk customers generating $${(atRiskSegment.revenue/1000).toFixed(0)}K revenue. ${atRiskSegment.customers[0].name} needs immediate attention with ${Math.round(atRiskSegment.customers[0].churnRisk * 100)}% churn risk. Shall I create a retention campaign?`);
+      
+      
+      
+      // Generate AI suggestion based on live data
+      if (segmentData.length > 0) {
+        const highRiskSegment = segmentData.find(s => s.avgRisk > 0.5);
+        if (highRiskSegment) {
+          setAISuggestion(`I've identified ${highRiskSegment.count} customers in ${highRiskSegment.name} segment with ${Math.round(highRiskSegment.avgRisk * 100)}% average risk generating $${(highRiskSegment.revenue/1000).toFixed(0)}K revenue. Shall I create a retention campaign?`);
+        } else {
+          setAISuggestion(`Your segments are performing well! ${segmentData[0]?.name} segment has ${segmentData[0]?.count} customers with low ${Math.round((segmentData[0]?.avgRisk || 0) * 100)}% risk.`);
+        }
       }
 
       // Set initial contextual questions
       updateContextualQuestions();
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
-      // Fallback to mock data
-      setKPIs({
-        totalCustomers: 88,
-        totalRevenue: 281000,
-        avgRevenue: 3193,
-        avgChurnRisk: 0.24,
-        segmentDistribution: [
-          { segment_name: 'VIP', count: 12 },
-          { segment_name: 'Active', count: 45 },
-          { segment_name: 'At-Risk', count: 23 },
-          { segment_name: 'Dormant', count: 8 }
-        ],
-        lastUpdated: new Date().toISOString()
-      });
     } finally {
       setIsLoading(false);
     }
@@ -702,12 +608,12 @@ export const CustomerDashboard: React.FC = () => {
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
               Daily Insights
-              {briefingStatus === 'loading' && (
+              {/* {briefingStatus === 'loading' && (
                 <div className="ml-2 flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2" style={{ borderColor: colors.primary }}></div>
-                  <span className="ml-2 text-sm" style={{ color: colors.textSecondary }}>Analyzing...</span>
+                  <span className="ml-2 text-sm" style={{ color: colors.textSecondary }}>Analyzing...</span> 
                 </div>
-              )}
+              )} */}
             </h2>
             <div className="bg-white rounded-lg shadow-sm border p-4" style={{ borderColor: colors.border }}>
               {/* Always visible top row with content and buttons */}
@@ -719,9 +625,11 @@ export const CustomerDashboard: React.FC = () => {
                         <div className="flex items-start space-x-3">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 mt-1" style={{ borderColor: colors.primary }}></div>
                           <div className="flex-1">
-                            <p className="text-sm" style={{ color: colors.primary }}>
-                              🤖 Generating your daily business briefing...
-                            </p>
+                            {/* <p className="text-sm" style={{ color: colors.primary }}> */}
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z" />
+</svg>Generating your daily business briefing...
+                            {/* </p> */}
                             <div className="text-xs mt-2" style={{ color: colors.textSecondary }}>
                               • Analyzing customer data<br/>
                               • Identifying urgent actions<br/>
@@ -732,10 +640,9 @@ export const CustomerDashboard: React.FC = () => {
                       )}
                     </>
                   ) : (
-                    <div className="text-center py-2">
-                      {/* <span className="text-sm" style={{ color: colors.textSecondary }}>
-                        Daily insights minimized
-                      </span> */}
+                    <>
+                     <div className="text-center py-2">
+                      
                       <div className="flex items-center justify-center space-x-8">
                       <div className="flex items-center space-x-2">
                         <div className="relative">
@@ -798,58 +705,8 @@ export const CustomerDashboard: React.FC = () => {
                       </div>
                     </div>
                     </div>
-                  )}
-                </div>
-                
-                {/* Always visible buttons */}
-                <div className="flex items-center space-x-1 ml-4">
-                  <button 
-                    onClick={handleRerunBriefing}
-                    className="p-1 rounded hover:bg-gray-100" 
-                    title="Refresh insights"
-                    disabled={briefingStatus === 'loading'}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: briefingStatus === 'loading' ? colors.textSecondary : colors.primary }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
-                  <button 
-                    onClick={() => setInsightsMinimized(!insightsMinimized)}
-                    className="p-1 rounded hover:bg-gray-100" 
-                    title={insightsMinimized ? "Expand insights" : "Minimize insights"}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: colors.primary }}>
-                      {insightsMinimized ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      )}
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              
-              {!insightsMinimized && (
-                <>
-                  {briefingStatus === 'complete' && briefingData && (
-                    <div className="space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <svg className="w-6 h-6 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" style={{ color: colors.success }}>
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        <div className="flex-1">
-                          <div 
-                            className="text-sm leading-relaxed prose prose-sm max-w-none" 
-                            style={{ color: colors.primary }}
-                            dangerouslySetInnerHTML={{ 
-                              __html: marked.parse(briefingData.briefing_text) as string 
-                            }}
-                          />
-                        </div>
-                      </div>
-                      
-                      {briefingData.summary_stats && (
-                        <div className="bg-gray-50 rounded-lg p-4 border-l-4" style={{ borderLeftColor: colors.primary }}>
+                      {/* {briefingData.summary_stats && (
+                        
                           <div className="flex items-center justify-around">
                             <div className="flex items-center space-x-3">
                               <div className="relative">
@@ -920,7 +777,132 @@ export const CustomerDashboard: React.FC = () => {
                               </div>
                             </div>
                           </div>
+                        
+                      )} */}
+                    </>
+                  )}
+                </div>
+                
+                {/* Always visible buttons */}
+                <div className="flex items-center space-x-1 ml-4">
+                  <button 
+                    onClick={handleRerunBriefing}
+                    className="p-1 rounded hover:bg-gray-100" 
+                    title="Refresh insights"
+                    disabled={briefingStatus === 'loading'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: briefingStatus === 'loading' ? colors.textSecondary : colors.primary }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={() => setInsightsMinimized(!insightsMinimized)}
+                    className="p-1 rounded hover:bg-gray-100" 
+                    title={insightsMinimized ? "Expand insights" : "Minimize insights"}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: colors.primary }}>
+                      {insightsMinimized ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      )}
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              {!insightsMinimized && (
+                <>
+                  {briefingStatus === 'complete' && briefingData && (
+                    <div className="space-y-4">
+                      <div className="flex items-start space-x-3">
+                        <svg className="w-6 h-6 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" style={{ color: colors.success }}>
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <div className="flex-1">
+                          <div 
+                            className="text-sm leading-relaxed prose prose-sm max-w-none" 
+                            style={{ color: colors.primary }}
+                            dangerouslySetInnerHTML={{ 
+                              __html: marked.parse(briefingData.briefing_text) as string 
+                            }}
+                          />
                         </div>
+                      </div>
+                      
+                      {briefingData.summary_stats && (
+                        
+                          <div className="flex items-center justify-around">
+                            <div className="flex items-center space-x-3">
+                              <div className="relative">
+                                <div 
+                                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                                  style={{ backgroundColor: colors.danger }}
+                                >
+                                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                  </svg>
+                                </div>
+                                <div 
+                                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                                  style={{ backgroundColor: colors.primary }}
+                                >
+                                  {getSafeCount(briefingData, 'urgent_count')}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium" style={{ color: colors.danger }}>Urgent</div>
+                                <div className="text-xs" style={{ color: colors.textSecondary }}>Immediate Action</div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                              <div className="relative">
+                                <div 
+                                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                                  style={{ backgroundColor: colors.success }}
+                                >
+                                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                  </svg>
+                                </div>
+                                <div 
+                                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                                  style={{ backgroundColor: colors.primary }}
+                                >
+                                  {getSafeCount(briefingData, 'opportunities_count')}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium" style={{ color: colors.success }}>Opportunities</div>
+                                <div className="text-xs" style={{ color: colors.textSecondary }}>Revenue Growth</div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                              <div className="relative">
+                                <div 
+                                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                                  style={{ backgroundColor: colors.primary }}
+                                >
+                                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                  </svg>
+                                </div>
+                                <div 
+                                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                                  style={{ backgroundColor: colors.primary }}
+                                >
+                                  {getSafeCount(briefingData, 'trends_count')}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium" style={{ color: colors.primary }}>Trends</div>
+                                <div className="text-xs" style={{ color: colors.textSecondary }}>Market Insights</div>
+                              </div>
+                            </div>
+                          </div>
+                        
                       )}
                       
                       {briefingData.context_actions && briefingData.context_actions.length > 0 && (
@@ -1034,134 +1016,7 @@ export const CustomerDashboard: React.FC = () => {
               )}
             </div>
           </div>
-                    {/* <div className="flex items-center justify-center space-x-8">
-                      <div className="flex items-center space-x-2">
-                        <div className="relative">
-                          <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: colors.danger }}
-                          >
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                          </div>
-                          <div 
-                            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                            style={{ backgroundColor: colors.primary }}
-                          >
-                            {getSafeCount(briefingData, 'urgent_count')}
-                          </div>
-                        </div>
-                        <span className="text-xs font-medium" style={{ color: colors.danger }}>Urgent</span>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <div className="relative">
-                          <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: colors.success }}
-                          >
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                          </div>
-                          <div 
-                            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                            style={{ backgroundColor: colors.primary }}
-                          >
-                            {getSafeCount(briefingData, 'opportunities_count')}
-                          </div>
-                        </div>
-                        <span className="text-xs font-medium" style={{ color: colors.success }}>Opportunities</span>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <div className="relative">
-                          <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: colors.primary }}
-                          >
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                          </div>
-                          <div 
-                            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                            style={{ backgroundColor: colors.primary }}
-                          >
-                            {getSafeCount(briefingData, 'trends_count')}
-                          </div>
-                        </div>
-                        <span className="text-xs font-medium" style={{ color: colors.primary }}>Trends</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="py-3">
-                      {briefingData && briefingData.summary_stats ? (
-                        <div className="flex items-center justify-center space-x-8">
-                          <div className="flex items-center space-x-2">
-                            <div className="relative">
-                              <div 
-                                className="w-8 h-8 rounded-full flex items-center justify-center"
-                                style={{ backgroundColor: colors.primaryLight }}
-                              >
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" style={{ color: colors.danger }}>
-                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                              <div 
-                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                                style={{ backgroundColor: colors.primary }}
-                              >
-                                {getSafeCount(briefingData, 'urgent_count')}
-                              </div>
-                            </div>
-                            <span className="text-xs font-medium" style={{ color: colors.danger }}>Urgent</span>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <div className="relative">
-                              <div 
-                                className="w-8 h-8 rounded-full flex items-center justify-center"
-                                style={{ backgroundColor: colors.primaryLight }}
-                              >
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" style={{ color: colors.success }}>
-                                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                              <div 
-                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                                style={{ backgroundColor: colors.primary }}
-                              >
-                                {getSafeCount(briefingData, 'opportunities_count')}
-                              </div>
-                            </div>
-                            <span className="text-xs font-medium" style={{ color: colors.success }}>Opportunities</span>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <div className="relative">
-                              <div 
-                                className="w-8 h-8 rounded-full flex items-center justify-center"
-                                style={{ backgroundColor: colors.primaryLight }}
-                              >
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" style={{ color: colors.primary }}>
-                                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-                                </svg>
-                              </div>
-                              <div 
-                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                                style={{ backgroundColor: colors.primary }}
-                              >
-                                {getSafeCount(briefingData, 'trends_count')}
-                              </div>
-                            </div>
-                            <span className="text-xs font-medium" style={{ color: colors.primary }}>Trends</span>
-                          </div>
-                        </div>
-                      ):(<></>)}
-                    </div> */}
-                  
+                    
             
           
 
@@ -1173,109 +1028,128 @@ export const CustomerDashboard: React.FC = () => {
               </svg>
               Segment Overview
             </h2>
-            <div className="grid grid-cols-4 gap-4">
-              {segments.map((segment) => (
-                <div
-                  key={segment.name}
-                  className="bg-white rounded-lg shadow-sm border p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  style={{ borderColor: selectedSegment?.name === segment.name ? segment.color : colors.border }}
-                  onClick={() => handleSegmentClick(segment)}
-                >
-                  <div className="text-center">
-                    <div className="flex justify-center mb-2">
-                      {renderSegmentIcon(segment.icon, segment.color)}
-                    </div>
-                    <div className="font-semibold" style={{ color: segment.color }}>
-                      {segment.name}
-                    </div>
-                    <div className="text-lg font-bold" style={{ color: colors.primary }}>
-                      {segment.count}
-                    </div>
-                    <div className="text-sm" style={{ color: colors.textSecondary }}>
-                      ${(segment.revenue / 1000).toFixed(0)}K
-                    </div>
-                    <button 
-                      className="mt-2 px-3 py-1 text-xs rounded border"
-                      style={{ borderColor: segment.color, color: segment.color }}
+            
+            <div className="flex gap-6">
+              {/* Compact Segments Grid */}
+              <div className="w-1/2 flex items-center">
+                <div className="grid grid-cols-4 gap-2 w-full">
+                  {segments.map((segment) => (
+                    <div
+                      key={segment.name}
+                      className={`rounded border p-2 cursor-pointer hover:shadow-sm transition-all text-center ${
+                        selectedSegment?.name === segment.name ? 'ring-1 ring-offset-1' : 'bg-white'
+                      }`}
+                      style={{ 
+                        borderColor: selectedSegment?.name === segment.name ? segment.color : colors.border,
+                        backgroundColor: selectedSegment?.name === segment.name ? colors.primary : 'white'
+                      }}
+                      onClick={() => handleSegmentClick(segment)}
                     >
-                      View Details
-                    </button>
-                  </div>
+                      <div className="text-xs font-medium mb-1" style={{ 
+                        color: selectedSegment?.name === segment.name ? colors.surface : segment.color 
+                      }}>
+                        {segment.name}
+                      </div>
+                      <div className="text-sm font-bold" style={{ 
+                        color: selectedSegment?.name === segment.name ? colors.surface : colors.primary 
+                      }}>
+                        {segment.count}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Selected Segment Detail Panel */}
+              <div className="w-1/2">
+                {selectedSegment ? (
+                  <div className="bg-white rounded-lg shadow-sm border p-4" style={{ borderColor: colors.border }}>
+                    <div className="flex items-center mb-4">
+                      <div className="flex items-center mr-3">
+                        {renderSegmentIcon(selectedSegment.icon, selectedSegment.color)}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold" style={{ color: selectedSegment.color }}>
+                          {selectedSegment.name} Segment
+                        </h3>
+                        <p className="text-sm" style={{ color: colors.textSecondary }}>
+                          Detailed segment analysis
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Segment Metrics */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="text-center p-3 rounded-lg" style={{ backgroundColor: colors.surface }}>
+                        <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                          {selectedSegment.count}
+                        </div>
+                        <div className="text-sm" style={{ color: colors.textSecondary }}>
+                          Customers
+                        </div>
+                      </div>
+                      <div className="text-center p-3 rounded-lg" style={{ backgroundColor: colors.surface }}>
+                        <div className="text-2xl font-bold" style={{ color: colors.success }}>
+                          ${(selectedSegment.revenue/1000).toFixed(0)}K
+                        </div>
+                        <div className="text-sm" style={{ color: colors.textSecondary }}>
+                          Revenue
+                        </div>
+                      </div>
+                      <div className="text-center p-3 rounded-lg" style={{ backgroundColor: colors.surface }}>
+                        <div className="text-2xl font-bold" style={{ color: selectedSegment.avgRisk > 0.5 ? colors.danger : colors.success }}>
+                          {Math.round(selectedSegment.avgRisk * 100)}%
+                        </div>
+                        <div className="text-sm" style={{ color: colors.textSecondary }}>
+                          Avg Risk
+                        </div>
+                      </div>
+                      <div className="text-center p-3 rounded-lg" style={{ backgroundColor: colors.surface }}>
+                        <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                          ${Math.round(selectedSegment.revenue / selectedSegment.count)}
+                        </div>
+                        <div className="text-sm" style={{ color: colors.textSecondary }}>
+                          Avg Value
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button 
+                        className="flex-1 px-3 py-2 rounded text-sm font-medium text-white"
+                        style={{ backgroundColor: selectedSegment.color }}
+                      >
+                        View Customers
+                      </button>
+                      <button 
+                        className="flex-1 px-3 py-2 rounded text-sm font-medium border"
+                        style={{ borderColor: selectedSegment.color, color: selectedSegment.color }}
+                      >
+                        Create Campaign
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-lg shadow-sm border p-8 text-center" style={{ borderColor: colors.border }}>
+                    <svg className="w-12 h-12 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20" style={{ color: colors.textMuted }}>
+                      <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                    </svg>
+                    <h3 className="text-lg font-medium mb-2" style={{ color: colors.textMuted }}>
+                      Select a Segment
+                    </h3>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                      Click on any segment to view detailed analytics and customer insights
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+          </div>
 
-          {/* Selected Segment Details */}
-          {selectedSegment && (
-            <div className="bg-white rounded-lg shadow-sm border p-6" style={{ borderColor: selectedSegment.color }}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold" style={{ color: colors.primary }}>
-                  {selectedSegment.name} Customers ({selectedSegment.count})
-                </h3>
-                <button 
-                  className="text-sm px-3 py-1 rounded"
-                  style={{ backgroundColor: colors.primaryDark, color: colors.surface }}
-                  onClick={() => setSelectedSegment(null)}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {selectedSegment.customers.slice(0, 3).map((customer) => (
-                  <div key={customer.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                    <div>
-                      <span className="font-medium" style={{ color: colors.primary }}>
-                        {customer.name}
-                      </span>
-                      <span className="text-sm ml-2" style={{ color: colors.textSecondary }}>
-                        ${customer.totalSpent} • {Math.round(customer.churnRisk * 100)}% risk
-                      </span>
-                    </div>
-                    <div className="flex space-x-1">
-                      <button className="px-2 py-1 text-xs rounded flex items-center" style={{ backgroundColor: colors.success, color: colors.surface }}>
-                        <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                          <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                        </svg>
-                      </button>
-                      <button className="px-2 py-1 text-xs rounded flex items-center" style={{ backgroundColor: colors.success, color: colors.surface }}>
-                        <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex space-x-3 mt-4">
-                <button 
-                  className="px-4 py-2 rounded flex items-center"
-                  style={{ backgroundColor: colors.primary, color: colors.surface }}
-                  onClick={() => handleBulkAction('email')}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                  </svg>
-                  Bulk Email
-                </button>
-                <button 
-                  className="px-4 py-2 rounded flex items-center"
-                  style={{ backgroundColor: colors.primary, color: colors.surface }}
-                  onClick={() => handleBulkAction('call')}
-                >
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                  </svg>
-                  Call Campaign
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        
+          
         </div>
 
         {/* Scudo Intelligence Chat */}
